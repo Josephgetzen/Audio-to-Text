@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Enterprise Whisper Engine | Local AI Transcriber</title>
+    <title>AI Transcriber | Secure Local Whisper Engine</title>
     
-    <!-- Tailwind CSS for Enterprise UI -->
+    <!-- Tailwind CSS for clean, modern UI -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Phosphor Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
@@ -13,112 +13,119 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f8fafc; }
-        .drag-active { border-color: #3b82f6; background-color: rgba(59, 130, 246, 0.1); }
+        .drag-active { border-color: #3b82f6 !important; background-color: rgba(59, 130, 246, 0.05) !important; }
         .loader { border-top-color: #3b82f6; -webkit-animation: spinner 1.5s linear infinite; animation: spinner 1.5s linear infinite; }
         @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #1e293b; }
         ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        
+        /* Smooth fade transitions */
+        .fade-enter { opacity: 0; transform: translateY(10px); }
+        .fade-enter-active { opacity: 1; transform: translateY(0); transition: opacity 400ms, transform 400ms; }
     </style>
 </head>
-<body class="min-h-screen flex flex-col items-center py-10 px-4">
+<body class="min-h-screen flex flex-col items-center py-12 px-4 sm:px-6">
 
     <!-- Header -->
-    <div class="max-w-4xl w-full flex flex-col gap-2 mb-8 text-center">
-        <h1 class="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-400 flex items-center justify-center gap-3">
-            <i class="ph-fill ph-waves"></i> Whisper Edge Engine
+    <div class="max-w-3xl w-full flex flex-col gap-2 mb-10 text-center">
+        <h1 class="text-4xl font-bold tracking-tight text-white flex items-center justify-center gap-3">
+            <i class="ph-fill ph-waves text-blue-500"></i> Local AI Transcriber
         </h1>
-        <p class="text-slate-400">High-Precision Client-Side Transcription • Large-v3-Turbo • ONNX WASM</p>
+        <p class="text-slate-400 text-sm sm:text-base">100% private, browser-based transcription using Whisper Large-v3-Turbo.</p>
     </div>
 
-    <!-- Main Container -->
-    <div class="max-w-4xl w-full bg-slate-800 rounded-2xl shadow-2xl border border-slate-700 overflow-hidden">
+    <!-- Main Application Card -->
+    <div class="max-w-3xl w-full bg-slate-800/80 backdrop-blur-sm rounded-2xl shadow-2xl border border-slate-700 overflow-hidden">
         
-        <!-- Top Bar / Warning -->
-        <div id="coop-warning" class="hidden bg-amber-500/10 border-b border-amber-500/20 text-amber-400 p-3 text-sm text-center">
-            <i class="ph-bold ph-warning"></i> Multi-threading disabled. For maximum speed, serve with COOP/COEP headers. Single-thread fallback active.
-        </div>
-
-        <div class="p-8">
+        <div class="p-6 sm:p-10">
             <!-- Upload Zone -->
-            <div id="drop-zone" class="border-2 border-dashed border-slate-600 rounded-xl p-10 flex flex-col items-center justify-center cursor-pointer transition-all hover:border-blue-500 hover:bg-slate-700/50">
-                <i class="ph ph-cloud-arrow-up text-6xl text-slate-400 mb-4"></i>
-                <h3 class="text-xl font-semibold mb-2">Drag & Drop Audio/Video</h3>
-                <p class="text-slate-400 text-sm mb-4 text-center">Supports MP4, WebM, MP3, WAV, FLAC.<br>Audio is extracted locally in your browser.</p>
+            <div id="drop-zone" class="border-2 border-dashed border-slate-600 rounded-2xl p-12 flex flex-col items-center justify-center cursor-pointer transition-all hover:border-slate-500 hover:bg-slate-700/30 group">
+                <div class="bg-slate-700/50 p-4 rounded-full mb-4 group-hover:scale-105 transition-transform">
+                    <i class="ph ph-upload-simple text-4xl text-blue-400"></i>
+                </div>
+                <h3 class="text-xl font-medium mb-2">Click or Drag to Upload</h3>
+                <p class="text-slate-400 text-sm text-center max-w-xs">Supports Audio and Video files.<br>Everything is processed locally on your device.</p>
                 <input type="file" id="file-input" class="hidden" accept="audio/*,video/*">
-                <button class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-medium transition-colors" onclick="document.getElementById('file-input').click()">
-                    Browse Files
-                </button>
             </div>
 
-            <!-- Settings Area -->
-            <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="bg-slate-900 rounded-lg p-4 border border-slate-700">
-                    <label class="block text-sm font-medium text-slate-400 mb-2">Transcription Language</label>
-                    <select id="lang-select" class="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white focus:outline-none focus:border-blue-500">
-                        <option value="en">English (Optimal)</option>
-                        <option value="auto">Auto-Detect</option>
+            <!-- Settings -->
+            <div class="mt-6">
+                <label class="block text-sm font-medium text-slate-400 mb-2">Spoken Language</label>
+                <div class="relative">
+                    <select id="lang-select" class="w-full appearance-none bg-slate-900 border border-slate-700 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow cursor-pointer">
+                        <option value="en">English (Fastest & Most Accurate)</option>
+                        <option value="auto">Auto-Detect Language</option>
                         <option value="es">Spanish</option>
                         <option value="fr">French</option>
                         <option value="de">German</option>
                     </select>
-                </div>
-                <div class="bg-slate-900 rounded-lg p-4 border border-slate-700">
-                    <label class="block text-sm font-medium text-slate-400 mb-2">Engine Priority</label>
-                    <select id="precision-select" class="w-full bg-slate-800 border border-slate-600 rounded p-2 text-white focus:outline-none focus:border-blue-500">
-                        <option value="accuracy">Highest Accuracy (Word Timestamps & Chunking)</option>
-                    </select>
+                    <i class="ph ph-caret-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
                 </div>
             </div>
 
-            <!-- Progress & Status -->
-            <div id="status-container" class="hidden mt-8">
-                <div class="flex justify-between text-sm mb-2">
-                    <span id="status-text" class="text-blue-400 font-medium">Initializing Engine...</span>
-                    <span id="status-percentage" class="text-slate-400">0%</span>
+            <!-- Progress & Status Indicator -->
+            <div id="status-container" class="hidden mt-8 bg-slate-900/50 rounded-xl p-5 border border-slate-700/50">
+                <div class="flex justify-between text-sm mb-3">
+                    <span id="status-text" class="text-blue-400 font-medium flex items-center gap-2">
+                        <i class="ph ph-spinner-gap animate-spin"></i> Initializing AI Engine...
+                    </span>
+                    <span id="status-percentage" class="text-slate-400 font-mono">0%</span>
                 </div>
-                <div class="w-full bg-slate-700 rounded-full h-2.5 overflow-hidden">
-                    <div id="progress-bar" class="bg-blue-500 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+                    <div id="progress-bar" class="bg-gradient-to-r from-blue-500 to-indigo-500 h-full rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
                 </div>
-                <!-- Model Download Sub-progress -->
-                <div id="model-downloads" class="mt-4 space-y-2 text-xs font-mono text-slate-500"></div>
+                <p id="status-subtext" class="text-xs text-slate-500 mt-3 text-center"></p>
             </div>
 
             <!-- Output Area -->
-            <div id="output-container" class="hidden mt-8 border-t border-slate-700 pt-8">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-xl font-semibold">Transcription Results</h2>
-                    <div class="flex gap-2">
-                        <button id="btn-copy" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-sm transition flex items-center gap-1">
+            <div id="output-container" class="hidden mt-8 border-t border-slate-700 pt-8 fade-enter">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                    <h2 class="text-lg font-semibold flex items-center gap-2">
+                        <i class="ph-fill ph-check-circle text-emerald-500"></i> Transcription Ready
+                    </h2>
+                    <div class="flex gap-2 w-full sm:w-auto">
+                        <button id="btn-copy" class="flex-1 sm:flex-none px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2">
                             <i class="ph ph-copy"></i> Copy Text
                         </button>
-                        <button id="btn-download-srt" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded text-sm transition flex items-center gap-1">
+                        <button id="btn-download-srt" class="flex-1 sm:flex-none px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-medium text-white transition-colors flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20">
                             <i class="ph ph-download-simple"></i> Download SRT
                         </button>
                     </div>
                 </div>
-                <div id="transcript-output" class="w-full h-64 bg-slate-900 rounded-lg border border-slate-700 p-4 overflow-y-auto text-slate-300 leading-relaxed space-y-2 text-sm font-mono">
+                
+                <div id="transcript-output" class="w-full max-h-80 bg-slate-900 rounded-xl border border-slate-700 p-5 overflow-y-auto text-slate-300 leading-relaxed text-sm font-mono space-y-3 shadow-inner custom-scrollbar">
                     <!-- Text chunks injected here -->
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Web Worker Logic Embedded as a Template String to maintain Single File -->
+    <!-- Footnote -->
+    <div class="mt-8 text-slate-500 text-xs text-center max-w-md">
+        <p>This tool utilizes your device's CPU/RAM to process data. No audio or text is ever sent to a remote server. Model weights are cached locally in your browser.</p>
+    </div>
+
+    <!-- 
+      Web Worker Logic Embedded as a Template String.
+      This isolates the heavy AI processing from the UI thread, ensuring the browser remains responsive.
+    -->
     <script>
-        /**
-         * The Worker Code handles the heavy lifting of Transformers.js asynchronously.
-         * Embedded as a string to create a Blob URL, preserving the single-file HTML constraint.
-         */
         const workerCode = `
             import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0/dist/transformers.min.js';
 
-            // Disable local models since we are fetching from Hub
+            // Disable local model loading (force fetching from Hugging Face hub)
             env.allowLocalModels = false;
             
-            // Attempt to maximize WASM threads depending on SharedArrayBuffer availability
-            env.backends.onnx.wasm.numThreads = typeof SharedArrayBuffer !== 'undefined' ? (navigator.hardwareConcurrency || 4) : 1;
+            // Abstracted Multi-threading logic. 
+            // If the environment lacks SharedArrayBuffer (due to missing COOP/COEP headers), 
+            // it gracefully falls back to single-threaded mode without crashing.
+            if (typeof SharedArrayBuffer !== 'undefined') {
+                env.backends.onnx.wasm.numThreads = Math.min(navigator.hardwareConcurrency || 4, 8);
+            } else {
+                env.backends.onnx.wasm.numThreads = 1;
+            }
 
             let transcriber = null;
 
@@ -127,9 +134,10 @@
 
                 if (action === 'init') {
                     try {
-                        transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-large-v3-turbo', {
+                        // Corrected Repo ID for Transformers.js v3
+                        transcriber = await pipeline('automatic-speech-recognition', 'onnx-community/whisper-large-v3-turbo', {
                             device: 'wasm',
-                            dtype: 'q8', // INT8 Quantization is required to prevent browser OOM (Out of Memory)
+                            dtype: 'q8', // Highest accuracy INT8 quantization
                             progress_callback: (info) => {
                                 self.postMessage({ status: 'progress', info });
                             }
@@ -145,13 +153,12 @@
                         self.postMessage({ status: 'transcribing' });
                         
                         const output = await transcriber(audio, {
-                            // High Accuracy Configurations
-                            chunk_length_s: 30, // Processes in 30s sequential blocks to prevent drift
-                            stride_length_s: 5, // Overlap chunks to maintain context at borders
-                            return_timestamps: 'word', // Cross-attention token alignment for exact ms precision
+                            chunk_length_s: 30, // Processes long files in sequential windows
+                            stride_length_s: 5, // Context overlap to prevent boundary hallucinations
+                            return_timestamps: 'word', // Word-level alignment for perfect SRT generation
                             language: lang === 'auto' ? null : lang,
                             
-                            // Streaming callback to update UI live
+                            // Optional: stream text back as it generates
                             callback_function: (chunk) => {
                                 self.postMessage({ status: 'chunk', data: chunk });
                             }
@@ -166,11 +173,12 @@
         `;
 
         // -------------------------------------------------------------------
-        // MAIN THREAD LOGIC
+        // MAIN THREAD ORCHESTRATION
         // -------------------------------------------------------------------
         
         let worker;
         let isWorkerReady = false;
+        let isProcessing = false;
         let finalTranscriptionResult = null;
 
         const UI = {
@@ -178,26 +186,21 @@
             fileInput: document.getElementById('file-input'),
             statusContainer: document.getElementById('status-container'),
             statusText: document.getElementById('status-text'),
+            statusSubtext: document.getElementById('status-subtext'),
             statusPercentage: document.getElementById('status-percentage'),
             progressBar: document.getElementById('progress-bar'),
-            modelDownloads: document.getElementById('model-downloads'),
             outputContainer: document.getElementById('output-container'),
             transcriptOutput: document.getElementById('transcript-output'),
-            langSelect: document.getElementById('lang-select'),
-            coopWarning: document.getElementById('coop-warning')
+            langSelect: document.getElementById('lang-select')
         };
 
         // Initialize Web Worker
         function initWorker() {
-            if (typeof SharedArrayBuffer === 'undefined') {
-                UI.coopWarning.classList.remove('hidden');
-            }
-
             const blob = new Blob([workerCode], { type: 'application/javascript' });
             worker = new Worker(URL.createObjectURL(blob), { type: 'module' });
 
             worker.onmessage = (e) => {
-                const { status, info, message, result, data } = e.data;
+                const { status, info, message, result } = e.data;
 
                 switch(status) {
                     case 'progress':
@@ -205,35 +208,33 @@
                         break;
                     case 'ready':
                         isWorkerReady = true;
-                        updateStatus('Engine Ready.', 100);
-                        setTimeout(() => { if(!processing) UI.statusContainer.classList.add('hidden'); }, 1000);
+                        updateStatus('AI Engine Ready.', 100, 'Model cached locally.');
+                        setTimeout(() => { if(!isProcessing) UI.statusContainer.classList.add('hidden'); }, 1500);
                         break;
                     case 'transcribing':
-                        updateStatus('Transcribing Audio (this may take a while)...', null);
-                        UI.transcriptOutput.innerHTML = ''; // Clear previous
+                        updateStatus('Transcribing Audio...', null, 'Running cross-attention analysis (this may take a while depending on file length).');
+                        UI.transcriptOutput.innerHTML = ''; 
                         UI.outputContainer.classList.remove('hidden');
-                        break;
-                    case 'chunk':
-                        // Fallback UI update if callback function emits partial data
+                        UI.outputContainer.classList.add('fade-enter-active');
                         break;
                     case 'complete':
                         handleTranscriptionComplete(result);
                         break;
                     case 'error':
-                        updateStatus(`Error: ${message}`, 0);
+                        updateStatus(`Engine Error`, 0, message);
                         UI.progressBar.classList.add('bg-red-500');
-                        processing = false;
+                        isProcessing = false;
                         break;
                 }
             };
 
-            // Trigger initialization download
+            // Start background loading immediately on page load
             UI.statusContainer.classList.remove('hidden');
-            updateStatus('Downloading Large-v3-Turbo weights (~800MB)...', 0);
+            updateStatus('Booting AI Engine...', 0, 'Downloading Large-v3-Turbo (First time only, ~800MB)');
             worker.postMessage({ action: 'init' });
         }
 
-        // --- Model Loading UI Logic ---
+        // Handle the download progress state gracefully
         const downloadTracker = {};
         function handleModelProgress(info) {
             if (info.status === 'init') {
@@ -244,54 +245,51 @@
                 downloadTracker[info.file].percentage = 100;
             }
 
-            // Calculate aggregate progress
             let totalWeights = 0;
             let loadedWeights = 0;
-            let html = '';
 
-            for (const [file, data] of Object.entries(downloadTracker)) {
+            for (const data of Object.values(downloadTracker)) {
                 if(data.total) {
                     totalWeights += data.total;
                     loadedWeights += data.loaded;
                 }
-                const p = Math.round(data.percentage || 0);
-                html += `<div class="flex justify-between"><span>${file}</span><span>${p}%</span></div>`;
             }
-
-            UI.modelDownloads.innerHTML = html;
             
             if (totalWeights > 0) {
                 const totalPercentage = Math.round((loadedWeights / totalWeights) * 100);
-                updateStatus('Downloading Model Weights...', totalPercentage);
+                updateStatus('Downloading AI Engine...', totalPercentage, 'Downloading & caching weights for offline use.');
             }
         }
 
-        function updateStatus(text, percentage) {
-            UI.statusText.innerText = text;
+        function updateStatus(text, percentage, subtext = '') {
+            UI.statusText.innerHTML = (percentage === null || percentage < 100) 
+                ? `<i class="ph ph-spinner-gap animate-spin"></i> ${text}` 
+                : `<i class="ph-fill ph-check-circle text-emerald-400"></i> ${text}`;
+            
+            UI.statusSubtext.innerText = subtext;
+
             if (percentage !== null) {
                 UI.statusPercentage.innerText = `${percentage}%`;
                 UI.progressBar.style.width = `${percentage}%`;
+                UI.progressBar.classList.remove('loader');
             } else {
-                UI.statusPercentage.innerText = '';
+                UI.statusPercentage.innerText = 'Processing...';
                 UI.progressBar.style.width = '100%';
                 UI.progressBar.classList.add('loader');
             }
         }
 
-        // --- Audio Extraction Logic (Web Audio API) ---
-        // This natively decodes MP4/WebM/Audio formats and strips down to 16kHz mono Float32Array
+        // Natively decode media files directly in browser memory without FFmpeg
         async function extractAudio(file) {
-            updateStatus('Extracting & Resampling Audio...', 0);
+            updateStatus('Extracting Audio Track...', 0, 'Decoding media file natively...');
             UI.statusContainer.classList.remove('hidden');
-            UI.progressBar.classList.remove('loader');
 
             const arrayBuffer = await file.arrayBuffer();
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
             
-            updateStatus('Decoding Audio Data (CPU intensive)...', 30);
+            updateStatus('Resampling Audio...', 30, 'Downmixing to 16kHz Mono...');
             const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
             
-            updateStatus('Downmixing to Mono...', 60);
             const offlineCtx = new OfflineAudioContext(1, audioBuffer.duration * 16000, 16000);
             const source = offlineCtx.createBufferSource();
             source.buffer = audioBuffer;
@@ -299,15 +297,12 @@
             source.start();
 
             const renderedBuffer = await offlineCtx.startRendering();
-            const float32Data = renderedBuffer.getChannelData(0);
-            
-            updateStatus('Audio Ready.', 100);
-            return float32Data;
+            updateStatus('Audio Ready.', 100, 'Sending to WebAssembly engine...');
+            return renderedBuffer.getChannelData(0); // Float32Array
         }
 
-        // --- Event Listeners ---
-        let processing = false;
-
+        // User Interactions
+        UI.dropZone.addEventListener('click', () => UI.fileInput.click());
         UI.dropZone.addEventListener('dragover', (e) => { e.preventDefault(); UI.dropZone.classList.add('drag-active'); });
         UI.dropZone.addEventListener('dragleave', () => UI.dropZone.classList.remove('drag-active'));
         UI.dropZone.addEventListener('drop', (e) => {
@@ -320,11 +315,12 @@
         });
 
         async function handleFile(file) {
-            if (processing) return alert('Already processing a file.');
-            if (!isWorkerReady) return alert('Please wait for the AI model to finish downloading.');
+            if (isProcessing) return alert('An audio file is already being processed.');
+            if (!isWorkerReady) return alert('Please wait a moment for the AI engine to finish loading.');
             
-            processing = true;
+            isProcessing = true;
             finalTranscriptionResult = null;
+            UI.outputContainer.classList.add('hidden');
             
             try {
                 const audioData = await extractAudio(file);
@@ -334,25 +330,30 @@
                     lang: UI.langSelect.value 
                 });
             } catch (err) {
-                alert('Error extracting audio: ' + err.message);
-                processing = false;
+                updateStatus('Media Extraction Failed', 0, err.message);
+                UI.progressBar.classList.add('bg-red-500');
+                isProcessing = false;
             }
         }
 
-        // --- Output Processing & Formats ---
+        // Format raw outputs
         function handleTranscriptionComplete(result) {
-            processing = false;
+            isProcessing = false;
             finalTranscriptionResult = result;
-            UI.progressBar.classList.remove('loader');
-            updateStatus('Transcription Complete!', 100);
+            updateStatus('Transcription Complete', 100, 'Ready for export.');
 
-            // Render output visually
             UI.transcriptOutput.innerHTML = '';
+            
             if (result.chunks && result.chunks.length > 0) {
                 result.chunks.forEach(chunk => {
-                    const timeRange = `[${formatTimeSec(chunk.timestamp[0])} -> ${formatTimeSec(chunk.timestamp[1])}]`;
+                    // Safety check on timestamps (word-level chunking can occasionally emit null ends)
+                    const start = chunk.timestamp[0];
+                    const end = chunk.timestamp[1] !== null ? chunk.timestamp[1] : start + 1.0;
+                    
+                    const timeRange = `[${formatTimeSec(start)} -> ${formatTimeSec(end)}]`;
                     const div = document.createElement('div');
-                    div.innerHTML = `<span class="text-blue-400 select-none">${timeRange}</span> <span class="text-slate-100">${chunk.text}</span>`;
+                    div.className = "flex gap-4 hover:bg-slate-800/50 p-2 rounded transition-colors";
+                    div.innerHTML = `<span class="text-blue-400 select-none shrink-0 w-32">${timeRange}</span> <span class="text-slate-100">${chunk.text}</span>`;
                     UI.transcriptOutput.appendChild(div);
                 });
             } else {
@@ -361,31 +362,27 @@
         }
 
         function formatTimeSec(seconds) {
-            if(seconds === null || seconds === undefined) return '??:??';
+            if (seconds === null || seconds === undefined) return '00:00';
             const m = Math.floor(seconds / 60).toString().padStart(2, '0');
             const s = Math.floor(seconds % 60).toString().padStart(2, '0');
             return `${m}:${s}`;
         }
 
-        // SRT Formatting (Enterprise Specification)
         function generateSRT(chunks) {
             let srtContent = '';
             
-            // Helper to convert seconds to HH:MM:SS,ms
             const toSRTTime = (timeInSeconds) => {
-                if (timeInSeconds === null) timeInSeconds = 0;
+                if (timeInSeconds === null || timeInSeconds === undefined) timeInSeconds = 0;
                 const hours = Math.floor(timeInSeconds / 3600);
                 const minutes = Math.floor((timeInSeconds % 3600) / 60);
                 const seconds = Math.floor(timeInSeconds % 60);
                 const milliseconds = Math.floor((timeInSeconds % 1) * 1000);
-                
                 return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')},${String(milliseconds).padStart(3, '0')}`;
             };
 
             chunks.forEach((chunk, index) => {
                 const start = toSRTTime(chunk.timestamp[0]);
-                // If chunk lacks end time (can happen at very end), guess + 2 seconds
-                const end = toSRTTime(chunk.timestamp[1] || chunk.timestamp[0] + 2);
+                const end = toSRTTime(chunk.timestamp[1] !== null ? chunk.timestamp[1] : chunk.timestamp[0] + 1.0);
                 
                 srtContent += `${index + 1}\n`;
                 srtContent += `${start} --> ${end}\n`;
@@ -395,15 +392,15 @@
             return srtContent;
         }
 
-        // Buttons
+        // Export Actions
         document.getElementById('btn-download-srt').addEventListener('click', () => {
-            if (!finalTranscriptionResult || !finalTranscriptionResult.chunks) return;
+            if (!finalTranscriptionResult?.chunks) return;
             const srt = generateSRT(finalTranscriptionResult.chunks);
             const blob = new Blob([srt], { type: 'text/plain' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `transcript_${Date.now()}.srt`;
+            a.download = `transcript_${new Date().getTime()}.srt`;
             a.click();
             URL.revokeObjectURL(url);
         });
@@ -413,71 +410,48 @@
             navigator.clipboard.writeText(finalTranscriptionResult.text);
             const btn = document.getElementById('btn-copy');
             const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="ph ph-check"></i> Copied';
+            btn.innerHTML = '<i class="ph ph-check text-emerald-400"></i> Copied';
             setTimeout(() => btn.innerHTML = originalText, 2000);
         });
 
         // -------------------------------------------------------------------
-        // ENTERPRISE API / HEADLESS BROWSER INTEGRATION
+        // HEADLESS API EXTENSION FOR AGENTS (PUPPETEER / PLAYWRIGHT)
         // -------------------------------------------------------------------
-        /**
-         * The window.WhisperAPI provides a globally accessible hook for automation suites 
-         * like Puppeteer, Playwright, or direct execution from other browser extensions.
-         */
         window.WhisperAPI = {
-            /**
-             * Returns boolean indicating if model is loaded and worker is idle
-             */
-            isReady: () => isWorkerReady && !processing,
-
-            /**
-             * Transcribes an Audio/Video File object programmatically.
-             * @param {File} file - The file to transcribe
-             * @param {string} lang - 'en', 'es', 'auto', etc.
-             * @returns {Promise<Object>} The raw JSON output including chunks and timestamps
-             */
+            isReady: () => isWorkerReady && !isProcessing,
+            
             transcribeFile: async (file, lang = 'en') => {
-                if (!isWorkerReady) throw new Error("API Error: Engine is not initialized. Wait for window.WhisperAPI.isReady() === true");
-                if (processing) throw new Error("API Error: Engine is currently busy.");
+                if (!isWorkerReady) throw new Error("API: Engine not initialized.");
+                if (isProcessing) throw new Error("API: Engine busy.");
                 
                 return new Promise(async (resolve, reject) => {
-                    processing = true;
+                    isProcessing = true;
                     try {
                         const audioData = await extractAudio(file);
                         
-                        // Temporarily override worker.onmessage to capture programmatic call
                         const defaultHandler = worker.onmessage;
                         worker.onmessage = (e) => {
-                            // Forward to standard UI
-                            defaultHandler({data: e.data}); 
-                            
+                            defaultHandler({data: e.data}); // Feed visual UI
                             if (e.data.status === 'complete') {
-                                worker.onmessage = defaultHandler; // restore
+                                worker.onmessage = defaultHandler;
                                 resolve(e.data.result);
                             } else if (e.data.status === 'error') {
                                 worker.onmessage = defaultHandler;
                                 reject(e.data.message);
                             }
                         };
-
                         worker.postMessage({ action: 'transcribe', audio: audioData, lang });
                     } catch (err) {
-                        processing = false;
+                        isProcessing = false;
                         reject(err);
                     }
                 });
             },
-
-            /**
-             * Generates SRT string from a Whisper JSON chunk output
-             */
             convertToSRT: (chunks) => generateSRT(chunks)
         };
 
-        // Boot
-        window.addEventListener('DOMContentLoaded', () => {
-            initWorker();
-        });
+        // Ignite the engine immediately
+        window.addEventListener('DOMContentLoaded', initWorker);
 
     </script>
 </body>
