@@ -128,8 +128,12 @@
                 <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden mb-3">
                     <div id="progress-bar" class="bg-gradient-to-r from-blue-500 to-indigo-500 h-full rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
                 </div>
+                
+                <!-- FIX: Restored the missing subtext element -->
+                <p id="status-subtext" class="text-xs text-slate-400 mt-2 text-center h-4"></p>
+
                 <!-- Detailed File Tracker -->
-                <div id="download-details" class="text-xs font-mono text-slate-500 space-y-1 max-h-24 overflow-y-auto custom-scrollbar"></div>
+                <div id="download-details" class="text-xs font-mono text-slate-500 space-y-1 max-h-24 overflow-y-auto custom-scrollbar mt-3"></div>
             </div>
 
             <!-- Output Area -->
@@ -171,7 +175,7 @@
                 self.postMessage({ status: 'log', message: 'WASM Threads Disabled (Single-thread fallback)' });
             }
 
-            // SINGLETON PIPELINE ARCHITECTURE (Fixes Concurrent Deadlock)
+            // SINGLETON PIPELINE ARCHITECTURE (Prevents Concurrent Deadlocks)
             let transcriberPromise = null;
             let loadedModelId = null;
             let loadedDeviceId = null;
@@ -186,8 +190,13 @@
                 loadedModelId = model;
                 loadedDeviceId = computeDevice;
                 
-                const targetDtype = computeDevice === 'webgpu' ? 'fp32' : 'q8';
-                self.postMessage({ status: 'log', message: \`Target precision (dtype): \${targetDtype}\` });
+                // WebGPU uses mixed precision (FP32 Encoder, Q4 Decoder) to prevent VRAM exhaustion.
+                // CPU uses pure Q8 to prevent WebAssembly 4GB heap exhaustion.
+                const targetDtype = computeDevice === 'webgpu' 
+                    ? { encoder_model: 'fp32', decoder_model_merged: 'q4' } 
+                    : 'q8'; 
+                
+                self.postMessage({ status: 'log', message: \`Target precision (dtype): \${JSON.stringify(targetDtype)}\` });
 
                 transcriberPromise = pipeline('automatic-speech-recognition', model, {
                     device: computeDevice, 
@@ -198,7 +207,7 @@
                 return transcriberPromise;
             }
 
-            // --- ACOUSTIC ONSET REFINER ---
+            // Acoustic Onset Refiner
             function refineAcousticOnset(audioData, chunks, sampleRate = 16000) {
                 self.postMessage({ status: 'log', message: 'Running Acoustic Gate Analysis...' });
                 let refinedCount = 0;
@@ -272,7 +281,6 @@
                             language: lang === 'auto' ? null : lang
                         });
 
-                        // Acoustic Refinement is applied natively if Word mode is active
                         if (timestampMode === 'word' && output.chunks) {
                             output.chunks = refineAcousticOnset(audio, output.chunks);
                         }
@@ -313,7 +321,7 @@
             warningText: document.getElementById('warning-text'),
             statusContainer: document.getElementById('status-container'),
             statusText: document.getElementById('status-text'),
-            statusSubtext: document.getElementById('status-subtext'),
+            statusSubtext: document.getElementById('status-subtext'), // RESTORED!
             statusPercentage: document.getElementById('status-percentage'),
             progressBar: document.getElementById('progress-bar'),
             downloadDetails: document.getElementById('download-details'),
@@ -328,7 +336,7 @@
             UI.dropIcon.className = "ph ph-hourglass-high text-3xl text-amber-400 animate-pulse";
             UI.dropTitle.innerText = "Engine Initializing...";
             UI.dropTitle.className = "text-lg font-medium mb-1 text-amber-400";
-            UI.dropSubtitle.innerText = "Please wait. Changing configurations...";
+            UI.dropSubtitle.innerText = "Please wait. Processing AI weights...";
             UI.statusContainer.classList.remove('hidden');
         }
 
@@ -406,8 +414,8 @@
                 }
             }
             
-            // Re-initialize engine if configs changed (and not initial boot)
-            if (changedElement !== 'init' && worker) {
+            // Re-initialize engine if configs changed
+            if (changedElement !== 'init' && worker && !isProcessing) {
                 initWorker();
             }
         }
@@ -422,7 +430,8 @@
 
             console.log(`[Main] Initiating Worker pipeline for model: ${actualModel}`);
             lockUI();
-            downloadTracker = {}; // Reset tracking array
+            downloadTracker = {}; 
+            isCompiling = false;
 
             if (!worker) {
                 const blob = new Blob([workerCode], { type: 'application/javascript' });
@@ -431,7 +440,7 @@
             }
 
             updateStatus('Booting Pipeline...', 0, 'Verifying cache or downloading model weights...');
-            UI.downloadDetails.innerHTML = ''; // Clear tracker text
+            if (UI.downloadDetails) UI.downloadDetails.innerHTML = ''; 
             
             worker.postMessage({ 
                 action: 'init', 
@@ -467,7 +476,7 @@
                     case 'error':
                         console.error(`[Worker Error] ${message}`);
                         updateStatus(`Pipeline Error`, 0, message);
-                        UI.progressBar.classList.add('bg-red-500');
+                        if(UI.progressBar) UI.progressBar.classList.add('bg-red-500');
                         isProcessing = false;
                         unlockUI();
                         break;
@@ -477,39 +486,36 @@
             worker.onerror = (err) => {
                 console.error(`[Fatal Worker Crash]`, err);
                 updateStatus('Fatal Worker Crash', 0, 'The background engine was forcefully terminated. This is usually caused by an Out-Of-Memory limit. Try selecting a smaller model.');
-                UI.progressBar.classList.add('bg-red-500');
+                if(UI.progressBar) UI.progressBar.classList.add('bg-red-500');
                 isProcessing = false;
-                unlockUI(); // Unlock so user can select smaller model
+                unlockUI(); 
             };
         }
 
         let downloadTracker = {};
+        let isCompiling = false;
 
         function handleModelProgress(info) {
-            // Initiate / Download start
             if (info.status === 'initiate' || info.status === 'download') {
                 downloadTracker[info.file] = { status: 'downloading', loaded: 0, total: 0, percentage: 0 };
             } 
-            // In progress
             else if (info.status === 'progress') {
                 if (!downloadTracker[info.file]) downloadTracker[info.file] = { loaded: 0, total: 0 };
                 downloadTracker[info.file].loaded = info.loaded;
                 downloadTracker[info.file].total = info.total;
                 downloadTracker[info.file].percentage = info.total > 0 ? Math.round((info.loaded / info.total) * 100) : 0;
             } 
-            // File completed
             else if (info.status === 'done') {
                 if (!downloadTracker[info.file]) downloadTracker[info.file] = { total: 100, loaded: 100 };
                 downloadTracker[info.file].percentage = 100;
                 downloadTracker[info.file].status = 'done';
             }
-            // Explicit compilation event from Transformers.js
             else if (info.status === 'ready') {
+                isCompiling = true;
                 updateStatus('Compiling Graph...', null, 'Optimizing ONNX execution graph. This may take a minute...');
                 return;
             }
 
-            // Math aggregation
             let totalWeights = 0, loadedWeights = 0;
             let allDone = true;
             let detailHTML = '';
@@ -532,13 +538,15 @@
                 </div>`;
             }
 
-            UI.downloadDetails.innerHTML = detailHTML;
+            if (UI.downloadDetails) UI.downloadDetails.innerHTML = detailHTML;
             
             if (totalWeights > 0) {
                 const totalPercentage = Math.round((loadedWeights / totalWeights) * 100);
-                
-                if (allDone) {
-                    updateStatus('Compiling Engine...', null, 'Building shader operations. The browser may appear frozen for up to 60 seconds. Do not close the tab.');
+                if (allDone || totalPercentage >= 100) {
+                    if (!isCompiling) {
+                        isCompiling = true;
+                        updateStatus('Compiling Engine...', null, 'Building shader operations. The browser may appear frozen for up to 60 seconds. Do not close the tab.');
+                    }
                 } else {
                     updateStatus('Downloading AI Weights...', totalPercentage, 'Caching model directly to your browser storage.');
                 }
@@ -546,19 +554,27 @@
         }
 
         function updateStatus(text, percentage, subtext = '') {
-            UI.statusText.innerHTML = (percentage === null || percentage < 100) 
-                ? `<i class="ph ph-spinner-gap animate-spin"></i> ${text}` 
-                : `<i class="ph-fill ph-check-circle text-emerald-400"></i> ${text}`;
-            UI.statusSubtext.innerText = subtext;
+            // Defensive DOM updates to prevent crashes if UI elements are missing
+            if (UI.statusText) {
+                UI.statusText.innerHTML = (percentage === null || percentage < 100) 
+                    ? `<i class="ph ph-spinner-gap animate-spin"></i> ${text}` 
+                    : `<i class="ph-fill ph-check-circle text-emerald-400"></i> ${text}`;
+            }
+            
+            if (UI.statusSubtext) {
+                UI.statusSubtext.innerText = subtext;
+            }
 
-            if (percentage !== null) {
-                UI.statusPercentage.innerText = `${percentage}%`;
-                UI.progressBar.style.width = `${percentage}%`;
-                UI.progressBar.classList.remove('loader');
-            } else {
-                UI.statusPercentage.innerText = 'Processing...';
-                UI.progressBar.style.width = '100%';
-                UI.progressBar.classList.add('loader');
+            if (UI.progressBar && UI.statusPercentage) {
+                if (percentage !== null) {
+                    UI.statusPercentage.innerText = `${percentage}%`;
+                    UI.progressBar.style.width = `${percentage}%`;
+                    UI.progressBar.classList.remove('loader');
+                } else {
+                    UI.statusPercentage.innerText = 'Processing...';
+                    UI.progressBar.style.width = '100%';
+                    UI.progressBar.classList.add('loader');
+                }
             }
         }
 
@@ -619,11 +635,11 @@
             lockUI();
             UI.dropTitle.innerText = "Transcribing...";
             UI.dropSubtitle.innerText = "Do not close this tab.";
-            UI.downloadDetails.innerHTML = ''; // Hide download text
+            if (UI.downloadDetails) UI.downloadDetails.innerHTML = ''; 
             
             finalTranscriptionResult = null;
             UI.outputContainer.classList.add('hidden');
-            UI.progressBar.classList.remove('bg-red-500'); 
+            if (UI.progressBar) UI.progressBar.classList.remove('bg-red-500'); 
             
             try {
                 const audioData = await extractAudio(file);
@@ -638,7 +654,7 @@
             } catch (err) {
                 console.error(`[Main Error] Audio extraction failed:`, err);
                 updateStatus('Extraction Failed', 0, err.message);
-                UI.progressBar.classList.add('bg-red-500');
+                if (UI.progressBar) UI.progressBar.classList.add('bg-red-500');
                 isProcessing = false;
                 unlockUI();
             }
@@ -649,7 +665,7 @@
             isProcessing = false;
             finalTranscriptionResult = result;
             updateStatus('Transcription Complete', 100, 'Ready for export.');
-            unlockUI(); // Restores interaction
+            unlockUI(); 
 
             UI.transcriptOutput.innerHTML = '';
             
@@ -743,6 +759,50 @@
             btn.innerHTML = '<i class="ph ph-check text-emerald-400"></i> Copied';
             setTimeout(() => btn.innerHTML = originalText, 2000);
         });
+
+        // -------------------------------------------------------------------
+        // HEADLESS API EXTENSION FOR AGENTS
+        // -------------------------------------------------------------------
+        window.WhisperAPI = {
+            isReady: () => isWorkerReady && !isProcessing,
+            
+            transcribeFile: async (file, lang = 'en', model = null, timestampMode = 'word') => {
+                const useModel = model || UI.modelSelect.value;
+                if (!worker) initWorker();
+                if (isProcessing) throw new Error("API: Engine busy.");
+                
+                return new Promise(async (resolve, reject) => {
+                    isProcessing = true;
+                    try {
+                        const audioData = await extractAudio(file);
+                        
+                        const defaultHandler = worker.onmessage;
+                        worker.onmessage = (e) => {
+                            defaultHandler({data: e.data}); // Feed visual UI
+                            if (e.data.status === 'complete') {
+                                worker.onmessage = defaultHandler;
+                                resolve(e.data.result);
+                            } else if (e.data.status === 'error') {
+                                worker.onmessage = defaultHandler;
+                                reject(e.data.message);
+                            }
+                        };
+                        worker.postMessage({ 
+                            action: 'transcribe', 
+                            audio: audioData, 
+                            model: useModel, 
+                            computeDevice: UI.deviceSelect.value,
+                            timestampMode,
+                            lang 
+                        });
+                    } catch (err) {
+                        isProcessing = false;
+                        reject(err);
+                    }
+                });
+            },
+            convertToSRT: (chunks) => generateSRT(chunks)
+        };
 
         // Initialize on load
         window.addEventListener('DOMContentLoaded', async () => {
