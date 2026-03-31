@@ -66,9 +66,10 @@
                     <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">AI Model</label>
                     <div class="relative">
                         <select id="model-select" class="w-full appearance-none bg-slate-800 border border-slate-600 rounded-lg py-2 px-3 text-sm text-white focus:outline-none focus:border-blue-500 cursor-pointer">
-                            <option value="Xenova/whisper-small" selected>Small (Best CPU/Word)</option>
+                            <option value="onnx-community/whisper-large-v3-turbo_timestamped" selected>Large-v3-Turbo (Word/Phrase)</option>
                             <option value="onnx-community/whisper-large-v3-turbo">Large-v3-Turbo (Phrase Only)</option>
-                            <option value="Xenova/whisper-large-v3">Large-v3 (GPU/Word Req.)</option>
+                            <option value="Xenova/whisper-small">Small (Fastest CPU)</option>
+                            <option value="Xenova/whisper-large-v3">Large-v3 Full (GPU Req.)</option>
                             <option value="custom">Custom HuggingFace ID</option>
                         </select>
                         <i class="ph ph-caret-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
@@ -106,14 +107,13 @@
             <div id="custom-model-container" class="hidden mt-4 bg-slate-900/50 p-4 rounded-xl border border-slate-700">
                 <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Custom ONNX Model Repository</label>
                 <input type="text" id="custom-model-input" placeholder="e.g., your-org/whisper-large-v3-turbo-attentions" class="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 px-3 text-sm text-white focus:outline-none focus:border-blue-500">
-                <p class="text-xs text-slate-500 mt-2">Provide a model exported with `output_attentions=True` if you require word-level timestamps on specific architectures.</p>
             </div>
 
             <!-- Acoustic Feature Toggle -->
             <div class="mt-4 flex items-center justify-between bg-slate-900/50 p-4 rounded-xl border border-slate-700">
                 <div>
                     <h4 class="text-sm font-semibold text-slate-200">Acoustic Onset Gating</h4>
-                    <p class="text-xs text-slate-400 mt-1">Trims early onset boundaries by scanning raw PCM data for exact acoustic energy.</p>
+                    <p class="text-xs text-slate-400 mt-1">Trims early word boundaries by dynamically scanning raw PCM audio energy.</p>
                 </div>
                 <label class="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" id="toggle-acoustic" class="sr-only peer" checked>
@@ -227,14 +227,13 @@
             }
 
             self.onmessage = async (e) => {
-                const { action, audio, model, computeDevice, timestampMode, refineAcoustics } = e.data;
+                const { action, audio, model, computeDevice, timestampMode, refineAcoustics, lang } = e.data;
 
                 if (action === 'init' || action === 'transcribe') {
                     if (model !== currentLoadedModel || computeDevice !== currentLoadedDevice) {
                         try {
                             self.postMessage({ status: 'progress', info: { status: 'init', file: 'Initializing Compute Pipeline...' } });
                             
-                            // FIX: Dynamic Data Type Target based on Execution Provider
                             // WebGPU does not support Q8 Integer Math. We must pass FP32 to VRAM.
                             // WASM CPU requires Q8 to fit models inside the 4GB browser memory limit.
                             const targetDtype = computeDevice === 'webgpu' ? 'fp32' : 'q8';
@@ -345,32 +344,32 @@
                 UI.customModelContainer.classList.remove('hidden');
             }
 
-            // Limitation 1: Official Large-v3-Turbo doesn't have attentions
+            // Limitation 1: Official Non-Timestamped Large-v3-Turbo doesn't have attentions
             if (model === 'onnx-community/whisper-large-v3-turbo' && isWordLevel) {
                 UI.warningBox.classList.remove('hidden');
                 if (changedElement === 'model') {
                     UI.timestampSelect.value = 'phrase';
-                    UI.warningText.innerHTML = "<b>Large-v3-Turbo</b> lacks Word-Level attentions. Switched to Phrase-Level. (Use Custom Model if you have an exported version).";
+                    UI.warningText.innerHTML = "<b>Large-v3-Turbo (Phrase Only)</b> lacks Word-Level attentions. Switched to Phrase-Level.";
                 } else {
-                    UI.modelSelect.value = 'Xenova/whisper-small';
-                    UI.warningText.innerHTML = "<b>Word-Level</b> requires attentions. Switched model to <b>Small</b>.";
+                    UI.modelSelect.value = 'onnx-community/whisper-large-v3-turbo_timestamped';
+                    UI.warningText.innerHTML = "<b>Word-Level</b> requires attentions. Auto-switched to <b>Turbo (Timestamped)</b>.";
                 }
             }
 
-            // Limitation 2: Standard Large-v3 on CPU will crash due to 4GB WASM limit
+            // Limitation 2: Standard Large-v3 Full Model on CPU will crash due to 4GB WASM limit
             if (model === 'Xenova/whisper-large-v3' && isCPU) {
                 UI.warningBox.classList.remove('hidden');
                 if (changedElement === 'model') {
                     if (hasWebGPU) {
                         UI.deviceSelect.value = 'webgpu';
-                        UI.warningText.innerHTML = "<b>Large-v3</b> exceeds CPU memory limits. Auto-switched to <b>WebGPU VRAM</b>.";
+                        UI.warningText.innerHTML = "<b>Large-v3 Full</b> exceeds CPU memory limits. Auto-switched to <b>WebGPU VRAM</b>.";
                     } else {
-                        UI.modelSelect.value = 'Xenova/whisper-small';
-                        UI.warningText.innerHTML = "<b>Large-v3</b> exceeds CPU memory and WebGPU is unavailable. Switched to <b>Small</b>.";
+                        UI.modelSelect.value = 'onnx-community/whisper-large-v3-turbo_timestamped';
+                        UI.warningText.innerHTML = "<b>Large-v3 Full</b> exceeds CPU memory. Auto-switched to <b>Turbo (Timestamped)</b>.";
                     }
                 } else {
-                    UI.modelSelect.value = 'Xenova/whisper-small';
-                    UI.warningText.innerHTML = "CPU cannot handle Large-v3. Switched model to <b>Small</b>.";
+                    UI.modelSelect.value = 'onnx-community/whisper-large-v3-turbo_timestamped';
+                    UI.warningText.innerHTML = "CPU cannot handle the Full Large-v3 model. Auto-switched to <b>Turbo (Timestamped)</b>.";
                 }
             }
             
