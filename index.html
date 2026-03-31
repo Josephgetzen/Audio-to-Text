@@ -29,7 +29,7 @@
         <h1 class="text-4xl font-bold tracking-tight text-white flex items-center justify-center gap-3">
             <i class="ph-fill ph-cpu text-blue-500"></i> Whisper Edge Compute
         </h1>
-        <p class="text-slate-400 text-sm sm:text-base">WebGPU Acceleration (FP32) • CPU Fallback (Q8) • Acoustic Gating</p>
+        <p class="text-slate-400 text-sm sm:text-base">WebGPU Acceleration • Mixed Precision • Acoustic Gating</p>
     </div>
 
     <!-- Main Container -->
@@ -55,7 +55,7 @@
                     <div class="relative">
                         <select id="device-select" class="w-full appearance-none bg-slate-800 border border-slate-600 rounded-lg py-2 px-3 text-sm text-white focus:outline-none focus:border-blue-500 cursor-pointer disabled:opacity-50">
                             <option value="wasm">CPU (Q8 WASM)</option>
-                            <option value="webgpu" id="opt-webgpu">GPU (FP32 WebGPU) - Checking...</option>
+                            <option value="webgpu" id="opt-webgpu">GPU (WebGPU) - Checking...</option>
                         </select>
                         <i class="ph ph-caret-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
                     </div>
@@ -66,8 +66,8 @@
                     <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">AI Model</label>
                     <div class="relative">
                         <select id="model-select" class="w-full appearance-none bg-slate-800 border border-slate-600 rounded-lg py-2 px-3 text-sm text-white focus:outline-none focus:border-blue-500 cursor-pointer">
-                            <option value="onnx-community/whisper-large-v3-turbo_timestamped" selected>Large-v3-Turbo (Word/Phrase)</option>
-                            <option value="onnx-community/whisper-large-v3-turbo">Large-v3-Turbo (Phrase Only)</option>
+                            <option value="onnx-community/whisper-large-v3-turbo_timestamped" selected>Turbo (Timestamped)</option>
+                            <option value="onnx-community/whisper-large-v3-turbo">Turbo (Phrase Only)</option>
                             <option value="Xenova/whisper-small">Small (Fastest CPU)</option>
                             <option value="Xenova/whisper-large-v3">Large-v3 Full (GPU Req.)</option>
                             <option value="custom">Custom HuggingFace ID</option>
@@ -171,7 +171,7 @@
 
             env.allowLocalModels = false;
             
-            // WASM Threads Fallback (Used only if device === 'wasm')
+            // Allow Multi-threading if headers exist
             if (typeof SharedArrayBuffer !== 'undefined') {
                 env.backends.onnx.wasm.numThreads = Math.min(navigator.hardwareConcurrency || 4, 8);
             } else {
@@ -234,9 +234,12 @@
                         try {
                             self.postMessage({ status: 'progress', info: { status: 'init', file: 'Initializing Compute Pipeline...' } });
                             
-                            // WebGPU does not support Q8 Integer Math. We must pass FP32 to VRAM.
-                            // WASM CPU requires Q8 to fit models inside the 4GB browser memory limit.
-                            const targetDtype = computeDevice === 'webgpu' ? 'fp32' : 'q8';
+                            // ENTERPRISE MEMORY FIX: 
+                            // WebGPU must use mixed precision to prevent OOM buffer crashes.
+                            // WASM CPU must use strict q8 to bypass the 4GB browser limitation.
+                            const targetDtype = computeDevice === 'webgpu' 
+                                ? { encoder_model: 'fp32', decoder_model_merged: 'q4' } // Halves VRAM usage
+                                : 'q8'; // Strict INT8 for standard CPU
 
                             transcriber = await pipeline('automatic-speech-recognition', model, {
                                 device: computeDevice, 
@@ -248,7 +251,8 @@
                             currentLoadedDevice = computeDevice;
                             if (action === 'init') self.postMessage({ status: 'ready' });
                         } catch (err) {
-                            self.postMessage({ status: 'error', message: err.message });
+                            // Convert unknown errors to strings to prevent silent UI stalls
+                            self.postMessage({ status: 'error', message: err ? (err.message || err.toString()) : 'Unknown pipeline error.' });
                             return;
                         }
                     } else if (action === 'init') {
@@ -269,13 +273,13 @@
 
                         // Apply Acoustic Refinement
                         if (refineAcoustics && timestampMode === 'word' && output.chunks) {
-                            self.postMessage({ status: 'transcribing' }); 
+                            self.postMessage({ status: 'transcribing' }); // Keep UI active
                             output.chunks = refineAcousticOnset(audio, output.chunks);
                         }
 
                         self.postMessage({ status: 'complete', result: output });
                     } catch (err) {
-                        self.postMessage({ status: 'error', message: err.message });
+                        self.postMessage({ status: 'error', message: err ? (err.message || err.toString()) : 'Inference error.' });
                     }
                 }
             };
@@ -323,7 +327,7 @@
             try {
                 const adapter = await navigator.gpu.requestAdapter();
                 if (!adapter) throw new Error();
-                UI.optWebGPU.innerText = "GPU (FP32 WebGPU Acceleration)";
+                UI.optWebGPU.innerText = "GPU (Mixed Precision WebGPU)";
                 hasWebGPU = true;
                 UI.deviceSelect.value = 'webgpu';
             } catch (e) {
@@ -344,19 +348,19 @@
                 UI.customModelContainer.classList.remove('hidden');
             }
 
-            // Limitation 1: Official Non-Timestamped Large-v3-Turbo doesn't have attentions
+            // Standardize against models that lack attentions
             if (model === 'onnx-community/whisper-large-v3-turbo' && isWordLevel) {
                 UI.warningBox.classList.remove('hidden');
                 if (changedElement === 'model') {
                     UI.timestampSelect.value = 'phrase';
-                    UI.warningText.innerHTML = "<b>Large-v3-Turbo (Phrase Only)</b> lacks Word-Level attentions. Switched to Phrase-Level.";
+                    UI.warningText.innerHTML = "<b>Turbo (Phrase Only)</b> lacks Word-Level attentions. Switched to Phrase-Level.";
                 } else {
                     UI.modelSelect.value = 'onnx-community/whisper-large-v3-turbo_timestamped';
                     UI.warningText.innerHTML = "<b>Word-Level</b> requires attentions. Auto-switched to <b>Turbo (Timestamped)</b>.";
                 }
             }
 
-            // Limitation 2: Standard Large-v3 Full Model on CPU will crash due to 4GB WASM limit
+            // Protect CPU from full Large-v3 Crash
             if (model === 'Xenova/whisper-large-v3' && isCPU) {
                 UI.warningBox.classList.remove('hidden');
                 if (changedElement === 'model') {
@@ -409,7 +413,7 @@
                     case 'progress': handleModelProgress(info); break;
                     case 'ready':
                         isWorkerReady = true;
-                        updateStatus('Compute Pipeline Ready.', 100, `Using ${UI.deviceSelect.value === 'webgpu' ? 'GPU (FP32)' : 'CPU (Q8)'}`);
+                        updateStatus('Compute Pipeline Ready.', 100, `Using ${UI.deviceSelect.value === 'webgpu' ? 'GPU (WebGPU)' : 'CPU (WASM)'}`);
                         setTimeout(() => { if(!isProcessing) UI.statusContainer.classList.add('hidden'); }, 1500);
                         break;
                     case 'transcribing':
@@ -426,12 +430,25 @@
                         break;
                 }
             };
+
+            // Catch hard silent crashes from the worker thread (OOMs)
+            worker.onerror = (err) => {
+                UI.statusContainer.classList.remove('hidden');
+                updateStatus('Fatal Worker Error', 0, 'The background engine crashed. This usually means your device ran out of memory. Try using a smaller model.');
+                UI.progressBar.classList.add('bg-red-500');
+                isProcessing = false;
+            };
         }
 
         let downloadTracker = {};
+        let isCompiling = false;
+
         function handleModelProgress(info) {
             if (info.status === 'init') {
-                if (info.file === 'Initializing Compute Pipeline...') downloadTracker = {}; 
+                if (info.file === 'Initializing Compute Pipeline...') {
+                    downloadTracker = {}; 
+                    isCompiling = false;
+                }
                 downloadTracker[info.file] = { total: 0, loaded: 0, percentage: 0 };
             } else if (info.status === 'progress') {
                 downloadTracker[info.file] = info;
@@ -440,13 +457,30 @@
             }
 
             let totalWeights = 0, loadedWeights = 0;
+            let allDone = true;
+
             for (const data of Object.values(downloadTracker)) {
-                if(data.total) { totalWeights += data.total; loadedWeights += data.loaded; }
+                if(data.total) { 
+                    totalWeights += data.total; 
+                    loadedWeights += data.loaded; 
+                }
+                if (data.percentage !== 100) {
+                    allDone = false;
+                }
             }
             
             if (totalWeights > 0) {
                 const totalPercentage = Math.round((loadedWeights / totalWeights) * 100);
-                updateStatus('Downloading AI Engine...', totalPercentage, 'Caching weights to browser storage.');
+                
+                // ENTERPRISE FIX: Transition UI when downloads finish so it doesn't appear frozen
+                if (allDone || totalPercentage >= 100) {
+                    if (!isCompiling) {
+                        isCompiling = true;
+                        updateStatus('Compiling Engine...', null, 'Optimizing neural network (this may take 1-3 minutes)...');
+                    }
+                } else {
+                    updateStatus('Downloading AI Engine...', totalPercentage, 'Caching weights to browser storage.');
+                }
             }
         }
 
