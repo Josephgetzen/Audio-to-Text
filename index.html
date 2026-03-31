@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Enterprise AI Transcriber | WebGPU Edge Compute</title>
+    <title>Enterprise AI Transcriber | Secure Edge Compute</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
@@ -11,7 +11,7 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f8fafc; }
-        .drag-active { border-color: #3b82f6 !important; background-color: rgba(59, 130, 246, 0.05) !important; }
+        .drag-active { border-color: #3b82f6 !important; background-color: rgba(59, 130, 246, 0.1) !important; }
         .loader { border-top-color: #3b82f6; -webkit-animation: spinner 1.5s linear infinite; animation: spinner 1.5s linear infinite; }
         @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         ::-webkit-scrollbar { width: 8px; }
@@ -20,6 +20,9 @@
         ::-webkit-scrollbar-thumb:hover { background: #64748b; }
         .fade-enter { opacity: 0; transform: translateY(10px); }
         .fade-enter-active { opacity: 1; transform: translateY(0); transition: opacity 400ms, transform 400ms; }
+        
+        /* Disabled UI States */
+        .ui-locked { opacity: 0.5; pointer-events: none; filter: grayscale(50%); }
     </style>
 </head>
 <body class="min-h-screen flex flex-col items-center py-10 px-4 sm:px-6">
@@ -29,25 +32,25 @@
         <h1 class="text-4xl font-bold tracking-tight text-white flex items-center justify-center gap-3">
             <i class="ph-fill ph-cpu text-blue-500"></i> Whisper Edge Compute
         </h1>
-        <p class="text-slate-400 text-sm sm:text-base">WebGPU Acceleration • Mixed Precision • Acoustic Gating</p>
+        <p class="text-slate-400 text-sm sm:text-base">WebGPU Acceleration • CPU Fallback (Q8) • Acoustic Gating</p>
     </div>
 
     <!-- Main Container -->
-    <div class="max-w-5xl w-full bg-slate-800/80 backdrop-blur-sm rounded-2xl shadow-2xl border border-slate-700 overflow-hidden">
+    <div class="max-w-5xl w-full bg-slate-800/80 backdrop-blur-sm rounded-2xl shadow-2xl border border-slate-700 overflow-hidden flex flex-col">
         
-        <div class="p-6 sm:p-8">
+        <div class="p-6 sm:p-8 flex-grow">
             <!-- Upload Zone -->
-            <div id="drop-zone" class="border-2 border-dashed border-slate-600 rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all hover:border-slate-500 hover:bg-slate-700/30 group mb-6">
+            <div id="drop-zone" class="ui-locked border-2 border-dashed border-slate-600 rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all hover:border-slate-500 hover:bg-slate-700/30 group mb-6">
                 <div class="bg-slate-700/50 p-4 rounded-full mb-3 group-hover:scale-105 transition-transform">
-                    <i class="ph ph-upload-simple text-3xl text-blue-400"></i>
+                    <i id="drop-icon" class="ph ph-hourglass-high text-3xl text-amber-400 animate-pulse"></i>
                 </div>
-                <h3 class="text-lg font-medium mb-1">Click or Drag to Upload</h3>
-                <p class="text-slate-400 text-sm text-center">Supports MP4, WebM, MP3, WAV.</p>
+                <h3 id="drop-title" class="text-lg font-medium mb-1 text-amber-400">Engine Initializing...</h3>
+                <p id="drop-subtitle" class="text-slate-400 text-sm text-center">Please wait for the AI weights to load.</p>
                 <input type="file" id="file-input" class="hidden" accept="audio/*,video/*">
             </div>
 
             <!-- Configuration Grid -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-900/50 p-4 rounded-xl border border-slate-700">
+            <div id="config-grid" class="ui-locked grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-900/50 p-4 rounded-xl border border-slate-700">
                 
                 <!-- Compute Device -->
                 <div>
@@ -103,22 +106,9 @@
                 </div>
             </div>
 
-            <!-- Custom Model Input -->
             <div id="custom-model-container" class="hidden mt-4 bg-slate-900/50 p-4 rounded-xl border border-slate-700">
                 <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Custom ONNX Model Repository</label>
                 <input type="text" id="custom-model-input" placeholder="e.g., your-org/whisper-large-v3-turbo-attentions" class="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 px-3 text-sm text-white focus:outline-none focus:border-blue-500">
-            </div>
-
-            <!-- Acoustic Feature Toggle -->
-            <div class="mt-4 flex items-center justify-between bg-slate-900/50 p-4 rounded-xl border border-slate-700">
-                <div>
-                    <h4 class="text-sm font-semibold text-slate-200">Acoustic Onset Gating</h4>
-                    <p class="text-xs text-slate-400 mt-1">Trims early word boundaries by dynamically scanning raw PCM audio energy.</p>
-                </div>
-                <label class="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" id="toggle-acoustic" class="sr-only peer" checked>
-                    <div class="w-11 h-6 bg-slate-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
-                </label>
             </div>
 
             <!-- UI Warning -->
@@ -127,18 +117,19 @@
                 <p id="warning-text">Warning Text</p>
             </div>
 
-            <!-- Status Indicator -->
-            <div id="status-container" class="hidden mt-6 bg-slate-900/80 rounded-xl p-5 border border-slate-700 shadow-inner">
+            <!-- Granular Status Indicator -->
+            <div id="status-container" class="mt-6 bg-slate-900/80 rounded-xl p-5 border border-slate-700 shadow-inner block">
                 <div class="flex justify-between text-sm mb-3">
                     <span id="status-text" class="text-blue-400 font-medium flex items-center gap-2">
-                        <i class="ph ph-spinner-gap animate-spin"></i> Preparing Engine...
+                        <i class="ph ph-spinner-gap animate-spin"></i> Preparing Engine Pipeline...
                     </span>
                     <span id="status-percentage" class="text-slate-400 font-mono">0%</span>
                 </div>
-                <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+                <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden mb-3">
                     <div id="progress-bar" class="bg-gradient-to-r from-blue-500 to-indigo-500 h-full rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
                 </div>
-                <p id="status-subtext" class="text-xs text-slate-500 mt-3 text-center h-4"></p>
+                <!-- Detailed File Tracker -->
+                <div id="download-details" class="text-xs font-mono text-slate-500 space-y-1 max-h-24 overflow-y-auto custom-scrollbar"></div>
             </div>
 
             <!-- Output Area -->
@@ -171,19 +162,46 @@
 
             env.allowLocalModels = false;
             
-            // Allow Multi-threading if headers exist
+            // Allow Multi-threading if headers exist (WASM specific)
             if (typeof SharedArrayBuffer !== 'undefined') {
                 env.backends.onnx.wasm.numThreads = Math.min(navigator.hardwareConcurrency || 4, 8);
+                self.postMessage({ status: 'log', message: \`WASM Threads Enabled: \${env.backends.onnx.wasm.numThreads}\` });
             } else {
                 env.backends.onnx.wasm.numThreads = 1;
+                self.postMessage({ status: 'log', message: 'WASM Threads Disabled (Single-thread fallback)' });
             }
 
-            let transcriber = null;
-            let currentLoadedModel = null;
-            let currentLoadedDevice = null;
+            // SINGLETON PIPELINE ARCHITECTURE (Fixes Concurrent Deadlock)
+            let transcriberPromise = null;
+            let loadedModelId = null;
+            let loadedDeviceId = null;
+
+            async function getPipelineInstance(model, computeDevice) {
+                if (transcriberPromise && loadedModelId === model && loadedDeviceId === computeDevice) {
+                    self.postMessage({ status: 'log', message: 'Returning cached pipeline instance.' });
+                    return transcriberPromise;
+                }
+                
+                self.postMessage({ status: 'log', message: \`Initializing new pipeline: \${model} on \${computeDevice}\` });
+                loadedModelId = model;
+                loadedDeviceId = computeDevice;
+                
+                const targetDtype = computeDevice === 'webgpu' ? 'fp32' : 'q8';
+                self.postMessage({ status: 'log', message: \`Target precision (dtype): \${targetDtype}\` });
+
+                transcriberPromise = pipeline('automatic-speech-recognition', model, {
+                    device: computeDevice, 
+                    dtype: targetDtype, 
+                    progress_callback: (info) => self.postMessage({ status: 'progress', info })
+                });
+
+                return transcriberPromise;
+            }
 
             // --- ACOUSTIC ONSET REFINER ---
             function refineAcousticOnset(audioData, chunks, sampleRate = 16000) {
+                self.postMessage({ status: 'log', message: 'Running Acoustic Gate Analysis...' });
+                let refinedCount = 0;
                 chunks.forEach((chunk) => {
                     let startSec = chunk.timestamp[0];
                     let endSec = chunk.timestamp[1] !== null ? chunk.timestamp[1] : startSec + 1.0;
@@ -216,54 +234,37 @@
 
                         if (windowRMS > threshold) {
                             let refinedStart = (i / sampleRate) - 0.01;
-                            if (refinedStart < endSec) {
+                            if (refinedStart < endSec && refinedStart > chunk.timestamp[0]) {
                                 chunk.timestamp[0] = Math.max(startSec, refinedStart);
+                                refinedCount++;
                             }
                             break; 
                         }
                     }
                 });
+                self.postMessage({ status: 'log', message: \`Acoustic Refinement Complete. Trims applied: \${refinedCount}\` });
                 return chunks;
             }
 
             self.onmessage = async (e) => {
-                const { action, audio, model, computeDevice, timestampMode, refineAcoustics, lang } = e.data;
+                const { action, audio, model, computeDevice, timestampMode, lang } = e.data;
 
-                if (action === 'init' || action === 'transcribe') {
-                    if (model !== currentLoadedModel || computeDevice !== currentLoadedDevice) {
-                        try {
-                            self.postMessage({ status: 'progress', info: { status: 'init', file: 'Initializing Compute Pipeline...' } });
-                            
-                            // ENTERPRISE MEMORY FIX: 
-                            // WebGPU must use mixed precision to prevent OOM buffer crashes.
-                            // WASM CPU must use strict q8 to bypass the 4GB browser limitation.
-                            const targetDtype = computeDevice === 'webgpu' 
-                                ? { encoder_model: 'fp32', decoder_model_merged: 'q4' } // Halves VRAM usage
-                                : 'q8'; // Strict INT8 for standard CPU
-
-                            transcriber = await pipeline('automatic-speech-recognition', model, {
-                                device: computeDevice, 
-                                dtype: targetDtype, 
-                                progress_callback: (info) => self.postMessage({ status: 'progress', info })
-                            });
-                            
-                            currentLoadedModel = model;
-                            currentLoadedDevice = computeDevice;
-                            if (action === 'init') self.postMessage({ status: 'ready' });
-                        } catch (err) {
-                            // Convert unknown errors to strings to prevent silent UI stalls
-                            self.postMessage({ status: 'error', message: err ? (err.message || err.toString()) : 'Unknown pipeline error.' });
-                            return;
-                        }
-                    } else if (action === 'init') {
+                if (action === 'init') {
+                    try {
+                        await getPipelineInstance(model, computeDevice);
                         self.postMessage({ status: 'ready' });
+                    } catch (err) {
+                        transcriberPromise = null; // Free lock on failure
+                        self.postMessage({ status: 'error', message: err ? (err.message || err.toString()) : 'Unknown init error.' });
                     }
                 }
 
                 if (action === 'transcribe') {
                     try {
                         self.postMessage({ status: 'transcribing' });
+                        const transcriber = await getPipelineInstance(model, computeDevice);
                         
+                        self.postMessage({ status: 'log', message: 'Starting Inference execution...' });
                         const output = await transcriber(audio, {
                             chunk_length_s: 30,
                             stride_length_s: 5,
@@ -271,9 +272,8 @@
                             language: lang === 'auto' ? null : lang
                         });
 
-                        // Apply Acoustic Refinement
-                        if (refineAcoustics && timestampMode === 'word' && output.chunks) {
-                            self.postMessage({ status: 'transcribing' }); // Keep UI active
+                        // Acoustic Refinement is applied natively if Word mode is active
+                        if (timestampMode === 'word' && output.chunks) {
                             output.chunks = refineAcousticOnset(audio, output.chunks);
                         }
 
@@ -286,7 +286,7 @@
         `;
 
         // -------------------------------------------------------------------
-        // MAIN UI ORCHESTRATION
+        // MAIN UI ORCHESTRATION & TELEMETRY
         // -------------------------------------------------------------------
         
         let worker;
@@ -297,6 +297,10 @@
 
         const UI = {
             dropZone: document.getElementById('drop-zone'),
+            dropIcon: document.getElementById('drop-icon'),
+            dropTitle: document.getElementById('drop-title'),
+            dropSubtitle: document.getElementById('drop-subtitle'),
+            configGrid: document.getElementById('config-grid'),
             fileInput: document.getElementById('file-input'),
             deviceSelect: document.getElementById('device-select'),
             optWebGPU: document.getElementById('opt-webgpu'),
@@ -305,7 +309,6 @@
             customModelInput: document.getElementById('custom-model-input'),
             timestampSelect: document.getElementById('timestamp-select'),
             langSelect: document.getElementById('lang-select'),
-            toggleAcoustic: document.getElementById('toggle-acoustic'),
             warningBox: document.getElementById('warning-box'),
             warningText: document.getElementById('warning-text'),
             statusContainer: document.getElementById('status-container'),
@@ -313,13 +316,39 @@
             statusSubtext: document.getElementById('status-subtext'),
             statusPercentage: document.getElementById('status-percentage'),
             progressBar: document.getElementById('progress-bar'),
+            downloadDetails: document.getElementById('download-details'),
             outputContainer: document.getElementById('output-container'),
             transcriptOutput: document.getElementById('transcript-output')
         };
 
+        function lockUI() {
+            isWorkerReady = false;
+            UI.dropZone.classList.add('ui-locked');
+            UI.configGrid.classList.add('ui-locked');
+            UI.dropIcon.className = "ph ph-hourglass-high text-3xl text-amber-400 animate-pulse";
+            UI.dropTitle.innerText = "Engine Initializing...";
+            UI.dropTitle.className = "text-lg font-medium mb-1 text-amber-400";
+            UI.dropSubtitle.innerText = "Please wait. Changing configurations...";
+            UI.statusContainer.classList.remove('hidden');
+        }
+
+        function unlockUI() {
+            isWorkerReady = true;
+            UI.dropZone.classList.remove('ui-locked');
+            UI.configGrid.classList.remove('ui-locked');
+            UI.dropIcon.className = "ph ph-upload-simple text-3xl text-blue-400";
+            UI.dropTitle.innerText = "Click or Drag to Upload";
+            UI.dropTitle.className = "text-lg font-medium mb-1 text-white";
+            UI.dropSubtitle.innerText = "Supports MP4, WebM, MP3, WAV.";
+            
+            setTimeout(() => { if(!isProcessing) UI.statusContainer.classList.add('hidden'); }, 2000);
+        }
+
         // WebGPU Capability Check
         async function checkWebGPU() {
+            console.log("[Main] Checking WebGPU compatibility...");
             if (!navigator.gpu) {
+                console.warn("[Main] WebGPU not supported by this browser.");
                 UI.optWebGPU.innerText = "GPU (WebGPU) - Not Supported";
                 UI.optWebGPU.disabled = true;
                 return;
@@ -327,10 +356,12 @@
             try {
                 const adapter = await navigator.gpu.requestAdapter();
                 if (!adapter) throw new Error();
-                UI.optWebGPU.innerText = "GPU (Mixed Precision WebGPU)";
+                console.log("[Main] WebGPU Adapter successfully acquired.");
+                UI.optWebGPU.innerText = "GPU (WebGPU Acceleration)";
                 hasWebGPU = true;
                 UI.deviceSelect.value = 'webgpu';
             } catch (e) {
+                console.warn("[Main] WebGPU requestAdapter failed.");
                 UI.optWebGPU.innerText = "GPU (WebGPU) - Unavailable";
                 UI.optWebGPU.disabled = true;
             }
@@ -348,7 +379,6 @@
                 UI.customModelContainer.classList.remove('hidden');
             }
 
-            // Standardize against models that lack attentions
             if (model === 'onnx-community/whisper-large-v3-turbo' && isWordLevel) {
                 UI.warningBox.classList.remove('hidden');
                 if (changedElement === 'model') {
@@ -360,13 +390,12 @@
                 }
             }
 
-            // Protect CPU from full Large-v3 Crash
             if (model === 'Xenova/whisper-large-v3' && isCPU) {
                 UI.warningBox.classList.remove('hidden');
                 if (changedElement === 'model') {
                     if (hasWebGPU) {
                         UI.deviceSelect.value = 'webgpu';
-                        UI.warningText.innerHTML = "<b>Large-v3 Full</b> exceeds CPU memory limits. Auto-switched to <b>WebGPU VRAM</b>.";
+                        UI.warningText.innerHTML = "<b>Large-v3 Full</b> exceeds CPU memory. Auto-switched to <b>WebGPU VRAM</b>.";
                     } else {
                         UI.modelSelect.value = 'onnx-community/whisper-large-v3-turbo_timestamped';
                         UI.warningText.innerHTML = "<b>Large-v3 Full</b> exceeds CPU memory. Auto-switched to <b>Turbo (Timestamped)</b>.";
@@ -377,16 +406,23 @@
                 }
             }
             
-            if (changedElement !== 'init' && !isProcessing && worker) initWorker(false); 
+            // Re-initialize engine if configs changed (and not initial boot)
+            if (changedElement !== 'init' && worker) {
+                initWorker();
+            }
         }
 
         UI.deviceSelect.addEventListener('change', () => validateConfiguration('device'));
         UI.modelSelect.addEventListener('change', () => validateConfiguration('model'));
         UI.timestampSelect.addEventListener('change', () => validateConfiguration('timestamp'));
 
-        function initWorker(showUI = true) {
+        function initWorker() {
             const actualModel = UI.modelSelect.value === 'custom' ? UI.customModelInput.value.trim() : UI.modelSelect.value;
             if (UI.modelSelect.value === 'custom' && !actualModel) return;
+
+            console.log(`[Main] Initiating Worker pipeline for model: ${actualModel}`);
+            lockUI();
+            downloadTracker = {}; // Reset tracking array
 
             if (!worker) {
                 const blob = new Blob([workerCode], { type: 'application/javascript' });
@@ -394,10 +430,8 @@
                 setupWorkerListeners();
             }
 
-            if (showUI) {
-                UI.statusContainer.classList.remove('hidden');
-                updateStatus('Booting Pipeline...', 0, 'Downloading requested model weights');
-            }
+            updateStatus('Booting Pipeline...', 0, 'Verifying cache or downloading model weights...');
+            UI.downloadDetails.innerHTML = ''; // Clear tracker text
             
             worker.postMessage({ 
                 action: 'init', 
@@ -410,11 +444,16 @@
             worker.onmessage = (e) => {
                 const { status, info, message, result } = e.data;
                 switch(status) {
-                    case 'progress': handleModelProgress(info); break;
+                    case 'log': 
+                        console.log(`[Worker] ${message}`);
+                        break;
+                    case 'progress': 
+                        handleModelProgress(info); 
+                        break;
                     case 'ready':
-                        isWorkerReady = true;
-                        updateStatus('Compute Pipeline Ready.', 100, `Using ${UI.deviceSelect.value === 'webgpu' ? 'GPU (WebGPU)' : 'CPU (WASM)'}`);
-                        setTimeout(() => { if(!isProcessing) UI.statusContainer.classList.add('hidden'); }, 1500);
+                        console.log(`[Main] Worker reported pipeline is READY.`);
+                        updateStatus('Compute Pipeline Ready', 100, `Using ${UI.deviceSelect.value.toUpperCase()}`);
+                        unlockUI();
                         break;
                     case 'transcribing':
                         updateStatus('Processing Audio...', null, 'Running neural network inference...');
@@ -422,64 +461,86 @@
                         UI.outputContainer.classList.remove('hidden');
                         UI.outputContainer.classList.add('fade-enter-active');
                         break;
-                    case 'complete': handleTranscriptionComplete(result); break;
+                    case 'complete': 
+                        handleTranscriptionComplete(result); 
+                        break;
                     case 'error':
+                        console.error(`[Worker Error] ${message}`);
                         updateStatus(`Pipeline Error`, 0, message);
                         UI.progressBar.classList.add('bg-red-500');
                         isProcessing = false;
+                        unlockUI();
                         break;
                 }
             };
 
-            // Catch hard silent crashes from the worker thread (OOMs)
             worker.onerror = (err) => {
-                UI.statusContainer.classList.remove('hidden');
-                updateStatus('Fatal Worker Error', 0, 'The background engine crashed. This usually means your device ran out of memory. Try using a smaller model.');
+                console.error(`[Fatal Worker Crash]`, err);
+                updateStatus('Fatal Worker Crash', 0, 'The background engine was forcefully terminated. This is usually caused by an Out-Of-Memory limit. Try selecting a smaller model.');
                 UI.progressBar.classList.add('bg-red-500');
                 isProcessing = false;
+                unlockUI(); // Unlock so user can select smaller model
             };
         }
 
         let downloadTracker = {};
-        let isCompiling = false;
 
         function handleModelProgress(info) {
-            if (info.status === 'init') {
-                if (info.file === 'Initializing Compute Pipeline...') {
-                    downloadTracker = {}; 
-                    isCompiling = false;
-                }
-                downloadTracker[info.file] = { total: 0, loaded: 0, percentage: 0 };
-            } else if (info.status === 'progress') {
-                downloadTracker[info.file] = info;
-            } else if (info.status === 'done') {
+            // Initiate / Download start
+            if (info.status === 'initiate' || info.status === 'download') {
+                downloadTracker[info.file] = { status: 'downloading', loaded: 0, total: 0, percentage: 0 };
+            } 
+            // In progress
+            else if (info.status === 'progress') {
+                if (!downloadTracker[info.file]) downloadTracker[info.file] = { loaded: 0, total: 0 };
+                downloadTracker[info.file].loaded = info.loaded;
+                downloadTracker[info.file].total = info.total;
+                downloadTracker[info.file].percentage = info.total > 0 ? Math.round((info.loaded / info.total) * 100) : 0;
+            } 
+            // File completed
+            else if (info.status === 'done') {
+                if (!downloadTracker[info.file]) downloadTracker[info.file] = { total: 100, loaded: 100 };
                 downloadTracker[info.file].percentage = 100;
+                downloadTracker[info.file].status = 'done';
+            }
+            // Explicit compilation event from Transformers.js
+            else if (info.status === 'ready') {
+                updateStatus('Compiling Graph...', null, 'Optimizing ONNX execution graph. This may take a minute...');
+                return;
             }
 
+            // Math aggregation
             let totalWeights = 0, loadedWeights = 0;
             let allDone = true;
+            let detailHTML = '';
 
-            for (const data of Object.values(downloadTracker)) {
-                if(data.total) { 
+            for (const [file, data] of Object.entries(downloadTracker)) {
+                if (data.total) { 
                     totalWeights += data.total; 
                     loadedWeights += data.loaded; 
                 }
-                if (data.percentage !== 100) {
-                    allDone = false;
-                }
+                if (data.percentage !== 100) allDone = false;
+                
+                const mbLoaded = (data.loaded / 1024 / 1024).toFixed(1);
+                const mbTotal = data.total ? (data.total / 1024 / 1024).toFixed(1) : '??';
+                
+                detailHTML += `<div class="flex justify-between border-b border-slate-800/50 py-1">
+                    <span class="truncate pr-4">${file}</span>
+                    <span class="${data.percentage === 100 ? 'text-emerald-400' : 'text-blue-400'} whitespace-nowrap">
+                        ${data.percentage === 100 ? 'Complete' : `${mbLoaded} / ${mbTotal} MB (${data.percentage}%)`}
+                    </span>
+                </div>`;
             }
+
+            UI.downloadDetails.innerHTML = detailHTML;
             
             if (totalWeights > 0) {
                 const totalPercentage = Math.round((loadedWeights / totalWeights) * 100);
                 
-                // ENTERPRISE FIX: Transition UI when downloads finish so it doesn't appear frozen
-                if (allDone || totalPercentage >= 100) {
-                    if (!isCompiling) {
-                        isCompiling = true;
-                        updateStatus('Compiling Engine...', null, 'Optimizing neural network (this may take 1-3 minutes)...');
-                    }
+                if (allDone) {
+                    updateStatus('Compiling Engine...', null, 'Building shader operations. The browser may appear frozen for up to 60 seconds. Do not close the tab.');
                 } else {
-                    updateStatus('Downloading AI Engine...', totalPercentage, 'Caching weights to browser storage.');
+                    updateStatus('Downloading AI Weights...', totalPercentage, 'Caching model directly to your browser storage.');
                 }
             }
         }
@@ -502,6 +563,7 @@
         }
 
         async function extractAudio(file) {
+            console.log(`[Main] Reading file array buffer: ${file.name}`);
             updateStatus('Extracting Audio Track...', 0, 'Decoding media file...');
             UI.statusContainer.classList.remove('hidden');
 
@@ -509,6 +571,7 @@
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
             
             updateStatus('Resampling Audio...', 30, 'Downmixing to 16kHz...');
+            console.log(`[Main] Sending to AudioContext decodeAudioData...`);
             const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
             
             const offlineCtx = new OfflineAudioContext(1, audioBuffer.duration * 16000, 16000);
@@ -517,30 +580,47 @@
             source.connect(offlineCtx.destination);
             source.start();
 
+            console.log(`[Main] Rendering offline audio context...`);
             const renderedBuffer = await offlineCtx.startRendering();
             updateStatus('Audio Ready.', 100, 'Sending to compute device...');
             return renderedBuffer.getChannelData(0);
         }
 
-        UI.dropZone.addEventListener('click', () => UI.fileInput.click());
-        UI.dropZone.addEventListener('dragover', (e) => { e.preventDefault(); UI.dropZone.classList.add('drag-active'); });
+        UI.dropZone.addEventListener('click', () => { if(isWorkerReady) UI.fileInput.click() });
+        UI.dropZone.addEventListener('dragover', (e) => { 
+            e.preventDefault(); 
+            if(isWorkerReady) UI.dropZone.classList.add('drag-active'); 
+        });
         UI.dropZone.addEventListener('dragleave', () => UI.dropZone.classList.remove('drag-active'));
         UI.dropZone.addEventListener('drop', (e) => {
             e.preventDefault();
             UI.dropZone.classList.remove('drag-active');
-            if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+            if (isWorkerReady && e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
         });
         UI.fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length) handleFile(e.target.files[0]);
+            if (isWorkerReady && e.target.files.length) handleFile(e.target.files[0]);
         });
 
         async function handleFile(file) {
-            if (isProcessing) return alert('Busy processing.');
+            if (!isWorkerReady) {
+                console.warn("[Main] File rejected: Engine is still locked/loading.");
+                return alert('Please wait for the AI engine to finish loading.');
+            }
+            if (isProcessing) {
+                console.warn("[Main] File rejected: Engine is currently busy transcribing.");
+                return alert('Busy processing.');
+            }
             
             const actualModel = UI.modelSelect.value === 'custom' ? UI.customModelInput.value.trim() : UI.modelSelect.value;
             if (!actualModel) return alert('Please enter a custom model ID.');
 
+            console.log(`[Main] Handling file drop: ${file.name}. Locking UI.`);
             isProcessing = true;
+            lockUI();
+            UI.dropTitle.innerText = "Transcribing...";
+            UI.dropSubtitle.innerText = "Do not close this tab.";
+            UI.downloadDetails.innerHTML = ''; // Hide download text
+            
             finalTranscriptionResult = null;
             UI.outputContainer.classList.add('hidden');
             UI.progressBar.classList.remove('bg-red-500'); 
@@ -553,20 +633,23 @@
                     model: actualModel,
                     computeDevice: UI.deviceSelect.value,
                     timestampMode: UI.timestampSelect.value,
-                    lang: UI.langSelect.value,
-                    refineAcoustics: UI.toggleAcoustic.checked
+                    lang: UI.langSelect.value
                 });
             } catch (err) {
+                console.error(`[Main Error] Audio extraction failed:`, err);
                 updateStatus('Extraction Failed', 0, err.message);
                 UI.progressBar.classList.add('bg-red-500');
                 isProcessing = false;
+                unlockUI();
             }
         }
 
         function handleTranscriptionComplete(result) {
+            console.log(`[Main] Transcription complete! Rendering output.`);
             isProcessing = false;
             finalTranscriptionResult = result;
             updateStatus('Transcription Complete', 100, 'Ready for export.');
+            unlockUI(); // Restores interaction
 
             UI.transcriptOutput.innerHTML = '';
             
@@ -663,9 +746,10 @@
 
         // Initialize on load
         window.addEventListener('DOMContentLoaded', async () => {
+            console.log("[Main] Page Loaded. Initiating setup sequence.");
             await checkWebGPU();
             validateConfiguration('init');
-            initWorker(true);
+            initWorker();
         });
 
     </script>
