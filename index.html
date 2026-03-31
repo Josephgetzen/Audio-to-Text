@@ -3,11 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Enterprise AI Transcriber | Word-Level Whisper Engine</title>
+    <title>Enterprise AI Transcriber | Precision Onset Gating</title>
     
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Phosphor Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
 
     <style>
@@ -31,7 +29,7 @@
         <h1 class="text-4xl font-bold tracking-tight text-white flex items-center justify-center gap-3">
             <i class="ph-fill ph-waves text-blue-500"></i> Local AI Transcriber
         </h1>
-        <p class="text-slate-400 text-sm sm:text-base">High-Precision Offline Transcription • Word-Level Attentions</p>
+        <p class="text-slate-400 text-sm sm:text-base">Acoustic Onset Refinement • Word-Level Attentions</p>
     </div>
 
     <!-- Main Container -->
@@ -39,23 +37,23 @@
         
         <div class="p-6 sm:p-8">
             <!-- Upload Zone -->
-            <div id="drop-zone" class="border-2 border-dashed border-slate-600 rounded-2xl p-10 flex flex-col items-center justify-center cursor-pointer transition-all hover:border-slate-500 hover:bg-slate-700/30 group mb-6">
-                <div class="bg-slate-700/50 p-4 rounded-full mb-4 group-hover:scale-105 transition-transform">
-                    <i class="ph ph-upload-simple text-4xl text-blue-400"></i>
+            <div id="drop-zone" class="border-2 border-dashed border-slate-600 rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all hover:border-slate-500 hover:bg-slate-700/30 group mb-6">
+                <div class="bg-slate-700/50 p-4 rounded-full mb-3 group-hover:scale-105 transition-transform">
+                    <i class="ph ph-upload-simple text-3xl text-blue-400"></i>
                 </div>
-                <h3 class="text-xl font-medium mb-2">Click or Drag to Upload</h3>
-                <p class="text-slate-400 text-sm text-center">Supports MP4, WebM, MP3, WAV.<br>Audio is natively extracted in your browser.</p>
+                <h3 class="text-lg font-medium mb-1">Click or Drag to Upload</h3>
+                <p class="text-slate-400 text-sm text-center">Supports MP4, WebM, MP3, WAV.</p>
                 <input type="file" id="file-input" class="hidden" accept="audio/*,video/*">
             </div>
 
             <!-- Configuration Grid -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-900/50 p-4 rounded-xl border border-slate-700">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-900/50 p-4 rounded-xl border border-slate-700">
                 <!-- AI Model -->
                 <div>
                     <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">AI Model</label>
                     <div class="relative">
                         <select id="model-select" class="w-full appearance-none bg-slate-800 border border-slate-600 rounded-lg py-2 px-3 text-sm text-white focus:outline-none focus:border-blue-500 cursor-pointer">
-                            <option value="Xenova/whisper-small" selected>Whisper Small (Recommended)</option>
+                            <option value="Xenova/whisper-small" selected>Whisper Small (Best for Word Level)</option>
                             <option value="Xenova/whisper-base">Whisper Base (Fastest)</option>
                             <option value="onnx-community/whisper-large-v3-turbo">Large-v3-Turbo (Phrase Only)</option>
                         </select>
@@ -74,29 +72,27 @@
                         <i class="ph ph-caret-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
                     </div>
                 </div>
-
-                <!-- Language -->
-                <div>
-                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Language</label>
-                    <div class="relative">
-                        <select id="lang-select" class="w-full appearance-none bg-slate-800 border border-slate-600 rounded-lg py-2 px-3 text-sm text-white focus:outline-none focus:border-blue-500 cursor-pointer">
-                            <option value="en">English (Optimal)</option>
-                            <option value="auto">Auto-Detect</option>
-                            <option value="es">Spanish</option>
-                            <option value="fr">French</option>
-                        </select>
-                        <i class="ph ph-caret-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
-                    </div>
-                </div>
             </div>
 
-            <!-- UI Warning for Invalid Combinations -->
+            <!-- Acoustic Feature Toggle -->
+            <div class="mt-4 flex items-center justify-between bg-slate-900/50 p-4 rounded-xl border border-slate-700">
+                <div>
+                    <h4 class="text-sm font-semibold text-slate-200">Acoustic Onset Refinement (VAD Gate)</h4>
+                    <p class="text-xs text-slate-400 mt-1">Trims early onset boundaries by scanning raw audio PCM data for exact acoustic energy.</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="toggle-acoustic" class="sr-only peer" checked>
+                    <div class="w-11 h-6 bg-slate-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
+                </label>
+            </div>
+
+            <!-- UI Warning -->
             <div id="warning-box" class="hidden mt-4 bg-amber-500/10 border border-amber-500/20 text-amber-400 px-4 py-3 rounded-lg text-sm flex items-start gap-3 transition-all">
                 <i class="ph-fill ph-warning-circle text-lg mt-0.5"></i>
                 <p id="warning-text">Warning Text</p>
             </div>
 
-            <!-- Progress & Status Indicator -->
+            <!-- Status Indicator -->
             <div id="status-container" class="hidden mt-6 bg-slate-900/80 rounded-xl p-5 border border-slate-700 shadow-inner">
                 <div class="flex justify-between text-sm mb-3">
                     <span id="status-text" class="text-blue-400 font-medium flex items-center gap-2">
@@ -140,7 +136,6 @@
 
             env.allowLocalModels = false;
             
-            // Handle WASM Threads
             if (typeof SharedArrayBuffer !== 'undefined') {
                 env.backends.onnx.wasm.numThreads = Math.min(navigator.hardwareConcurrency || 4, 8);
             } else {
@@ -150,10 +145,61 @@
             let transcriber = null;
             let currentLoadedModel = null;
 
-            self.onmessage = async (e) => {
-                const { action, audio, lang, model, timestampMode } = e.data;
+            // --- ACOUSTIC ONSET REFINER (NATIVE VAD) ---
+            // Trims silence preceding a word by measuring RMS energy in the Float32 PCM Array
+            function refineAcousticOnset(audioData, chunks, sampleRate = 16000) {
+                chunks.forEach((chunk, index) => {
+                    let startSec = chunk.timestamp[0];
+                    let endSec = chunk.timestamp[1] !== null ? chunk.timestamp[1] : startSec + 1.0;
+                    
+                    let startIdx = Math.floor(startSec * sampleRate);
+                    let endIdx = Math.floor(endSec * sampleRate);
 
-                // Handle Engine Initialization dynamically
+                    if (startIdx < 0) startIdx = 0;
+                    if (endIdx > audioData.length) endIdx = audioData.length;
+                    if (startIdx >= endIdx) return;
+
+                    // 1. Establish Noise Floor from the 100ms prior to the word
+                    let preStartIdx = Math.max(0, startIdx - Math.floor(0.1 * sampleRate));
+                    let noiseRMS = 0;
+                    let count = 0;
+                    for (let i = preStartIdx; i < startIdx; i++) {
+                        noiseRMS += audioData[i] * audioData[i];
+                        count++;
+                    }
+                    noiseRMS = count > 0 ? Math.sqrt(noiseRMS / count) : 0.001;
+
+                    // 2. Scan forward from Whisper's start time in 5ms windows
+                    const windowSize = Math.floor(0.005 * sampleRate); // 5ms
+                    // Threshold must be louder than background, with an absolute minimum floor to catch soft consonants (like 's' or 'f')
+                    const threshold = Math.max(noiseRMS * 1.5, 0.005); 
+
+                    for (let i = startIdx; i < endIdx - windowSize; i += windowSize) {
+                        let windowRMS = 0;
+                        for (let j = 0; j < windowSize; j++) {
+                            windowRMS += audioData[i + j] * audioData[i + j];
+                        }
+                        windowRMS = Math.sqrt(windowRMS / windowSize);
+
+                        if (windowRMS > threshold) {
+                            // Energy spike found! This is the true acoustic onset.
+                            // We retract by 10ms to preserve the natural attack/breath of the word.
+                            let refinedStart = (i / sampleRate) - 0.01;
+                            
+                            // Ensure we don't accidentally push the start time later than the end time
+                            if (refinedStart < endSec) {
+                                chunk.timestamp[0] = Math.max(startSec, refinedStart);
+                            }
+                            break; 
+                        }
+                    }
+                });
+                return chunks;
+            }
+
+            self.onmessage = async (e) => {
+                const { action, audio, model, timestampMode, refineAcoustics } = e.data;
+
                 if (action === 'init' || action === 'transcribe') {
                     if (model !== currentLoadedModel) {
                         try {
@@ -183,11 +229,16 @@
                             chunk_length_s: 30,
                             stride_length_s: 5,
                             return_timestamps: timestampMode === 'word' ? 'word' : true, 
-                            language: lang === 'auto' ? null : lang,
                             callback_function: (chunk) => {
-                                self.postMessage({ status: 'chunk', data: chunk });
+                                // Raw progress hook (unrefined)
                             }
                         });
+
+                        // Apply Acoustic Refinement if requested and in word mode
+                        if (refineAcoustics && timestampMode === 'word' && output.chunks) {
+                            self.postMessage({ status: 'transcribing' }); // Keep UI in processing mode
+                            output.chunks = refineAcousticOnset(audio, output.chunks);
+                        }
 
                         self.postMessage({ status: 'complete', result: output });
                     } catch (err) {
@@ -211,7 +262,7 @@
             fileInput: document.getElementById('file-input'),
             modelSelect: document.getElementById('model-select'),
             timestampSelect: document.getElementById('timestamp-select'),
-            langSelect: document.getElementById('lang-select'),
+            toggleAcoustic: document.getElementById('toggle-acoustic'),
             warningBox: document.getElementById('warning-box'),
             warningText: document.getElementById('warning-text'),
             statusContainer: document.getElementById('status-container'),
@@ -223,37 +274,27 @@
             transcriptOutput: document.getElementById('transcript-output')
         };
 
-        // UI Validation Logic (Prevents Large-v3 + Word Level combo)
         function validateConfiguration(changedElement) {
             UI.warningBox.classList.add('hidden');
-            
             const isLargeModel = UI.modelSelect.value === 'onnx-community/whisper-large-v3-turbo';
             const isWordLevel = UI.timestampSelect.value === 'word';
 
             if (isLargeModel && isWordLevel) {
                 UI.warningBox.classList.remove('hidden');
-                
                 if (changedElement === 'model') {
-                    // User selected Large model, force switch timestamp to Phrase
                     UI.timestampSelect.value = 'phrase';
                     UI.warningText.innerHTML = "<b>Large-v3-Turbo</b> does not support Word-Level timestamps. Switched to Phrase-Level.";
                 } else {
-                    // User selected Word timestamp, force switch model to Small
                     UI.modelSelect.value = 'Xenova/whisper-small';
                     UI.warningText.innerHTML = "<b>Word-Level</b> requires cross-attentions. Switched model to <b>Whisper Small</b>.";
                 }
             }
-            
-            // If model changed and idle, preload new weights
-            if (changedElement === 'model' && !isProcessing && worker) {
-                initWorker(false); 
-            }
+            if (changedElement === 'model' && !isProcessing && worker) initWorker(false); 
         }
 
         UI.modelSelect.addEventListener('change', () => validateConfiguration('model'));
         UI.timestampSelect.addEventListener('change', () => validateConfiguration('timestamp'));
 
-        // Initialize Web Worker
         function initWorker(showUI = true) {
             if (!worker) {
                 const blob = new Blob([workerCode], { type: 'application/javascript' });
@@ -266,16 +307,12 @@
                 updateStatus('Booting AI Engine...', 0, 'Downloading requested model weights (~200MB - 800MB)');
             }
             
-            worker.postMessage({ 
-                action: 'init',
-                model: UI.modelSelect.value 
-            });
+            worker.postMessage({ action: 'init', model: UI.modelSelect.value });
         }
 
         function setupWorkerListeners() {
             worker.onmessage = (e) => {
                 const { status, info, message, result } = e.data;
-
                 switch(status) {
                     case 'progress': handleModelProgress(info); break;
                     case 'ready':
@@ -284,7 +321,7 @@
                         setTimeout(() => { if(!isProcessing) UI.statusContainer.classList.add('hidden'); }, 1500);
                         break;
                     case 'transcribing':
-                        updateStatus('Transcribing Audio...', null, 'Running cross-attention analysis (may take a few minutes).');
+                        updateStatus('Transcribing Audio...', null, 'Running analysis & acoustic alignment (may take a moment).');
                         UI.transcriptOutput.innerHTML = ''; 
                         UI.outputContainer.classList.remove('hidden');
                         UI.outputContainer.classList.add('fade-enter-active');
@@ -299,11 +336,10 @@
             };
         }
 
-        // Handle Download Progress
         let downloadTracker = {};
         function handleModelProgress(info) {
             if (info.status === 'init') {
-                if (info.file === 'Switching Engine...') downloadTracker = {}; // Reset on model switch
+                if (info.file === 'Switching Engine...') downloadTracker = {}; 
                 downloadTracker[info.file] = { total: 0, loaded: 0, percentage: 0 };
             } else if (info.status === 'progress') {
                 downloadTracker[info.file] = info;
@@ -326,7 +362,6 @@
             UI.statusText.innerHTML = (percentage === null || percentage < 100) 
                 ? `<i class="ph ph-spinner-gap animate-spin"></i> ${text}` 
                 : `<i class="ph-fill ph-check-circle text-emerald-400"></i> ${text}`;
-            
             UI.statusSubtext.innerText = subtext;
 
             if (percentage !== null) {
@@ -340,7 +375,6 @@
             }
         }
 
-        // Native Audio Extraction
         async function extractAudio(file) {
             updateStatus('Extracting Audio Track...', 0, 'Decoding media file natively...');
             UI.statusContainer.classList.remove('hidden');
@@ -362,7 +396,6 @@
             return renderedBuffer.getChannelData(0); // Float32Array
         }
 
-        // User Interactions
         UI.dropZone.addEventListener('click', () => UI.fileInput.click());
         UI.dropZone.addEventListener('dragover', (e) => { e.preventDefault(); UI.dropZone.classList.add('drag-active'); });
         UI.dropZone.addEventListener('dragleave', () => UI.dropZone.classList.remove('drag-active'));
@@ -377,20 +410,19 @@
 
         async function handleFile(file) {
             if (isProcessing) return alert('An audio file is already being processed.');
-            
             isProcessing = true;
             finalTranscriptionResult = null;
             UI.outputContainer.classList.add('hidden');
-            UI.progressBar.classList.remove('bg-red-500'); // Reset error state if any
+            UI.progressBar.classList.remove('bg-red-500'); 
             
             try {
                 const audioData = await extractAudio(file);
                 worker.postMessage({ 
                     action: 'transcribe', 
                     audio: audioData,
-                    lang: UI.langSelect.value,
                     model: UI.modelSelect.value,
-                    timestampMode: UI.timestampSelect.value
+                    timestampMode: UI.timestampSelect.value,
+                    refineAcoustics: UI.toggleAcoustic.checked
                 });
             } catch (err) {
                 updateStatus('Media Extraction Failed', 0, err.message);
@@ -399,7 +431,6 @@
             }
         }
 
-        // Format Output
         function handleTranscriptionComplete(result) {
             isProcessing = false;
             finalTranscriptionResult = result;
@@ -408,7 +439,6 @@
             UI.transcriptOutput.innerHTML = '';
             
             if (result.chunks && result.chunks.length > 0) {
-                // If Word-Level, render chunks as flowing inline text with hover timestamps
                 const isWordMode = UI.timestampSelect.value === 'word';
                 
                 if(isWordMode) {
@@ -417,12 +447,11 @@
                     result.chunks.forEach(chunk => {
                         const start = chunk.timestamp[0];
                         const span = document.createElement('span');
-                        span.className = "hover:bg-blue-900/50 hover:text-blue-200 px-1 rounded transition-colors cursor-crosshair group relative";
+                        span.className = "hover:bg-blue-900/50 hover:text-blue-200 px-1 rounded transition-colors cursor-crosshair group relative inline-block";
                         span.innerText = chunk.text;
                         
-                        // Tooltip for exact timestamp
                         const tooltip = document.createElement('span');
-                        tooltip.className = "absolute -top-6 left-1/2 -translate-x-1/2 bg-slate-800 text-blue-300 text-[10px] py-0.5 px-2 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity";
+                        tooltip.className = "absolute -top-6 left-1/2 -translate-x-1/2 bg-slate-800 text-blue-300 text-[10px] py-0.5 px-2 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10 shadow-lg border border-slate-600";
                         tooltip.innerText = formatTimeSec(start, true);
                         span.appendChild(tooltip);
                         
@@ -430,14 +459,13 @@
                     });
                     UI.transcriptOutput.appendChild(p);
                 } else {
-                    // Phrase Level: Render traditional stacked list
                     result.chunks.forEach(chunk => {
                         const start = chunk.timestamp[0];
                         const end = chunk.timestamp[1] !== null ? chunk.timestamp[1] : start + 2.0;
-                        const timeRange = `[${formatTimeSec(start)} -> ${formatTimeSec(end)}]`;
+                        const timeRange = `[${formatTimeSec(start, true)} -> ${formatTimeSec(end, true)}]`;
                         const div = document.createElement('div');
                         div.className = "flex gap-4 hover:bg-slate-800/50 p-1.5 rounded transition-colors border-b border-slate-800/50 last:border-0";
-                        div.innerHTML = `<span class="text-blue-400 select-none shrink-0 w-32">${timeRange}</span> <span class="text-slate-100">${chunk.text}</span>`;
+                        div.innerHTML = `<span class="text-blue-400 select-none shrink-0 w-36 text-xs mt-0.5">${timeRange}</span> <span class="text-slate-100">${chunk.text}</span>`;
                         UI.transcriptOutput.appendChild(div);
                     });
                 }
@@ -447,7 +475,7 @@
         }
 
         function formatTimeSec(seconds, ms = false) {
-            if (seconds === null || seconds === undefined) return '00:00';
+            if (seconds === null || seconds === undefined) return '00:00.00';
             const m = Math.floor(seconds / 60).toString().padStart(2, '0');
             const s = Math.floor(seconds % 60).toString().padStart(2, '0');
             if (ms) {
@@ -457,7 +485,6 @@
             return `${m}:${s}`;
         }
 
-        // SRT Generation Standard (Works for both Word and Phrase level output chunks)
         function generateSRT(chunks) {
             let srtContent = '';
             const toSRTTime = (timeInSeconds) => {
@@ -481,7 +508,6 @@
             return srtContent;
         }
 
-        // Action Buttons
         document.getElementById('btn-download-srt').addEventListener('click', () => {
             if (!finalTranscriptionResult?.chunks) return;
             const srt = generateSRT(finalTranscriptionResult.chunks);
@@ -503,39 +529,6 @@
             setTimeout(() => btn.innerHTML = originalText, 2000);
         });
 
-        // Headless API
-        window.WhisperAPI = {
-            isReady: () => isWorkerReady && !isProcessing,
-            transcribeFile: async (file, lang = 'en', model = 'Xenova/whisper-small', timestampMode = 'word') => {
-                if (!worker) initWorker(false);
-                if (isProcessing) throw new Error("API: Engine busy.");
-                
-                return new Promise(async (resolve, reject) => {
-                    isProcessing = true;
-                    try {
-                        const audioData = await extractAudio(file);
-                        const defaultHandler = worker.onmessage;
-                        worker.onmessage = (e) => {
-                            if (e.data.status === 'complete') {
-                                worker.onmessage = defaultHandler;
-                                isProcessing = false;
-                                resolve(e.data.result);
-                            } else if (e.data.status === 'error') {
-                                worker.onmessage = defaultHandler;
-                                isProcessing = false;
-                                reject(e.data.message);
-                            }
-                        };
-                        worker.postMessage({ action: 'transcribe', audio: audioData, lang, model, timestampMode });
-                    } catch (err) {
-                        isProcessing = false;
-                        reject(err);
-                    }
-                });
-            }
-        };
-
-        // Initialize on load
         window.addEventListener('DOMContentLoaded', () => initWorker(true));
 
     </script>
